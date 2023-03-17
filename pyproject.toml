@@ -7,7 +7,13 @@ readme = "README.md"
 packages = [{include = "master_thesis_experiments"}]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = ">=3.8, <3.9"
+pandas = "^1.5.3"
+scipy = "^1.10.1"
+river = "^0.15.0"
+scikit-learn = "^1.2.1"
+jupyter = "^1.0.0"
+modal = "^0.4.1"
 
 
 [build-system]
