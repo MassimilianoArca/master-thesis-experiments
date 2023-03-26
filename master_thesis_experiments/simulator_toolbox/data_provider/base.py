@@ -64,5 +64,5 @@ class DataProvider:
         """
         return a dataframe from ids
         """
-        df = self.get_all_data(available_only=True)
+        df = self.get_dataset()
         return df.iloc[ids]

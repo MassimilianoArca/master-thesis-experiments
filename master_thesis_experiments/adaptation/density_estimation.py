@@ -76,7 +76,7 @@ class MultivariateNormalEstimator(ClairvoyantNormalEstimator):
         self.cov = None
 
     def fit(self, dataset: np.ndarray):
-        super().fit(dataset)
+        # super().fit(dataset)
         self.oas.fit(dataset)
 
         if self.mean is None:
