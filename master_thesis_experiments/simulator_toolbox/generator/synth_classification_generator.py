@@ -39,6 +39,7 @@ class SynthClassificationGenerator(Generator):
         self._cov_values = []
         self.covariance_matrices = np.zeros((self.n_classes, self.size, self.size))
         self.classes = list(range(self.n_classes))
+        self.prior_probs = []
 
         self.current_interchange_prob = 0.00
         self.current_interchanging_rbfs = []
@@ -76,35 +77,22 @@ class SynthClassificationGenerator(Generator):
         self.is_generating = True
 
         data = []
-
         random_vars = []
 
         for mean, covariance_matrix in zip(
                 self.mean_values, self.covariance_matrices
         ):
-
-            if not is_pd(covariance_matrix):
-                covariance_matrix = nearest_pd(covariance_matrix)
-
-            random_var = multivariate_normal(mean=mean, cov=covariance_matrix)
+            random_var = multivariate_normal(
+                mean=mean, cov=covariance_matrix
+            )
 
             random_vars.append(random_var)
 
         for _ in range(n_samples):
+            selected = np.random.choice(range(len(self.prior_probs)), p=self.prior_probs)
 
-            random_vars = []
-
-            for mean, covariance_matrix in zip(
-                    self.mean_values, self.covariance_matrices
-            ):
-                random_var = multivariate_normal(
-                    mean=mean, cov=covariance_matrix
-                )
-
-                random_vars.append(random_var)
-
-            selected = random.randint(0, len(random_vars) - 1)
-
+            # generate row for the class label 'selected', which is a
+            # float randomly selected in [0, len(random_vars) - 1]
             entry = random_vars[selected].rvs()
 
             entry = np.append(entry, selected)

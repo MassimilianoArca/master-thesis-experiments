@@ -15,6 +15,7 @@ class DataProvider:
         self.current_index = 0
         self.name = name
         self.generated_dataset = generated_dataset
+        self.enriched_dataset = None
 
     def get_dataset(self):
         """
@@ -66,3 +67,9 @@ class DataProvider:
         """
         df = self.get_dataset()
         return df.iloc[ids]
+
+    def add_samples(self, samples_list):
+        df = pd.DataFrame(samples_list, columns=self.generated_dataset.columns)
+        self.enriched_dataset = pd.concat([self.generated_dataset, df], axis=0)
+
+        return deepcopy(self.enriched_dataset)

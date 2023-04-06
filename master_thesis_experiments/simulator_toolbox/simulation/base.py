@@ -33,6 +33,7 @@ class Simulation:
         self.metadata = None
         self.concept_mapping = {}
         self.concepts: List[DataProvider] = []
+        self.prior_probs_per_concept = []
 
         # results to be saved
         self.experiments_metadata = []

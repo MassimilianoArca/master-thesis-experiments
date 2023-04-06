@@ -39,16 +39,20 @@ class SynthClassificationSimulation(Simulation):
             self.concept_mapping['concept_' + str(i)] = {}
 
             self.generator.mean_values = [
-                np.random.uniform(0, 1, self.generator.size) for _ in range(self.generator.n_classes)
+                np.random.uniform(0, 8, self.generator.size) for _ in range(self.generator.n_classes)
             ]
             self.generator.cov_values = [
-                np.random.uniform(0.0001, 0.001, triangular_size) for _ in range(self.generator.n_classes)
+                np.random.uniform(6, 9, triangular_size) for _ in range(self.generator.n_classes)
             ]
 
             for j in range(self.generator.n_classes):
                 self.concept_mapping['concept_' + str(i)]['class_' + str(j)] = multivariate_normal(
                     self.generator.mean_values[j], self.generator.covariance_matrices[j]
                 )
+            n_classes = self.generator.n_classes
+            prior_probs = np.random.dirichlet(np.ones(n_classes))
+            self.generator.prior_probs = prior_probs
+            self.prior_probs_per_concept.append(prior_probs)
 
             if i != n_concepts - 1:
                 dataset = self.generator.generate(concept_size)
@@ -65,7 +69,7 @@ class SynthClassificationSimulation(Simulation):
 if __name__ == '__main__':
     simulation = SynthClassificationSimulation(
         name='prova',
-        generator=SynthClassificationGenerator(4, 1, 2),
+        generator=SynthClassificationGenerator(3, 1, 2),
         strategies=[],
         base_learners=[],
         results_dir=''

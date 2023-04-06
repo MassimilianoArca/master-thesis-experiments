@@ -8,7 +8,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.neighbors import KernelDensity
 
 
-class DensityEstimator:
+class DensityEstimator(object):
     """
     Density estimator abstract class.
     """
