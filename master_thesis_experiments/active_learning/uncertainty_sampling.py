@@ -35,6 +35,8 @@ class UncertaintySamplingLearner(BaseLearner):
     def initialize(self):
         super().initialize()
 
+        self.n_past_samples = self.past_dataset.n_samples
+
         n_concepts = len(self.past_concepts)
         shape = (self.n_past_samples, n_concepts)
         self.label_per_concept = np.ndarray(shape)

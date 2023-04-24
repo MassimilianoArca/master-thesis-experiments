@@ -60,7 +60,7 @@ class ClairvoyantNormalEstimator(DensityEstimator):
             self.cov = np.eye(dim)
 
     def pdf(self, X: np.ndarray) -> np.ndarray:
-        return multivariate_normal.pdf(X, mean=self.mean, cov=self.cov)
+        return multivariate_normal.pdf(X, mean=self.mean, cov=self.cov, allow_singular=True)
 
 
 class MultivariateNormalEstimator(ClairvoyantNormalEstimator):

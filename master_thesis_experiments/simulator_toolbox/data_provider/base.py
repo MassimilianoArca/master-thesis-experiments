@@ -15,7 +15,12 @@ class DataProvider:
         self.current_index = 0
         self.name = name
         self.generated_dataset = generated_dataset
+        self.n_samples = generated_dataset.shape[0]
         self.enriched_dataset = None
+
+    @property
+    def index(self):
+        return self.generated_dataset.index
 
     def get_dataset(self):
         """
@@ -70,6 +75,11 @@ class DataProvider:
 
     def add_samples(self, samples_list):
         df = pd.DataFrame(samples_list, columns=self.generated_dataset.columns)
-        self.enriched_dataset = pd.concat([self.generated_dataset, df], axis=0)
+        self.generated_dataset = pd.concat([self.generated_dataset, df], axis=0)
+        self.n_samples = self.generated_dataset.shape[0]
 
-        return deepcopy(self.enriched_dataset)
+        return deepcopy(self.generated_dataset)
+
+    def delete_sample(self, sample_index):
+        self.generated_dataset.drop(sample_index, axis=0, inplace=True)
+        self.n_samples = self.generated_dataset.shape[0]

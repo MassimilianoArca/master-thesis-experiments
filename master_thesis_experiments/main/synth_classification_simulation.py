@@ -50,7 +50,9 @@ class SynthClassificationSimulation(Simulation):
                     self.generator.mean_values[j], self.generator.covariance_matrices[j]
                 )
             n_classes = self.generator.n_classes
-            prior_probs = np.random.dirichlet(np.ones(n_classes))
+            alpha = 3
+            # the higher the alpha, the more balanced the prior probabilities
+            prior_probs = np.random.dirichlet(alpha * np.ones(n_classes))
             self.generator.prior_probs = prior_probs
             self.prior_probs_per_concept.append(prior_probs)
 

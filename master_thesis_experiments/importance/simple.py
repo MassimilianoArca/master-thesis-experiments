@@ -26,7 +26,10 @@ class IWHandler:
         self.current_concept = concept_list[-1]
 
         self.joints_probabilities = []
+        self.current_concept_joints_probabilities = []
         self.concepts_numerators = []
+
+        self.true_weights_per_concept = []
         self.weights_per_concept = []
         self.classes = None
         self.prior_class_probabilities = prior_class_probabilities
@@ -45,9 +48,10 @@ class IWHandler:
                 self.prior_class_probabilities.append(prior_class_probabilities)
 
     def compute_prior_probabilities(self):
-        logger.debug('Computing prior class probabilities...')
 
         if self.prior_class_probabilities is None:
+            logger.debug('Computing prior class probabilities...')
+
             self.prior_class_probabilities = []
             for concept in self.past_concepts:
                 dataset = concept.get_dataset()
@@ -75,6 +79,25 @@ class IWHandler:
                 )
             concept_joints = pd.DataFrame(concept_joints)
             self.joints_probabilities.append(concept_joints)
+
+    def compute_current_concept_probabilities(self):
+        last_concept_name = self.concept_list[-1].name
+        for concept_index, concept in enumerate(self.past_concepts):
+            X, y = concept.get_split_dataset()
+            shape = (X.shape[0],)
+            concept_joints = np.ndarray(shape=shape)
+
+            for index in range(len(X)):
+                sample = X[index]
+                label = y[index].astype(int)
+                class_estimator = self.concept_mapping[last_concept_name]['class_' + str(label)]
+
+                concept_joints[index] = (
+                        class_estimator.pdf(sample)
+                        * self.prior_class_probabilities[concept_index][label]
+                )
+            concept_joints = pd.DataFrame(concept_joints)
+            self.current_concept_joints_probabilities.append(concept_joints)
 
     def estimate_current_concept(self):
         X, y = self.current_concept.get_split_dataset()
@@ -120,6 +143,16 @@ class IWHandler:
 
         return self.weights_per_concept
 
+    def compute_true_weights(self):
+
+        for concept_index in range(len(self.past_concepts)):
+            numerators = self.current_concept_joints_probabilities[concept_index]
+            denominators = self.joints_probabilities[concept_index]
+            weights = numerators / denominators
+            self.true_weights_per_concept.append(weights)
+
+        return self.true_weights_per_concept
+
     def run(self):
 
         self.initialize()
@@ -164,6 +197,23 @@ if __name__ == '__main__':
         estimator_type=MultivariateNormalEstimator,
         prior_class_probabilities=simulation.prior_probs_per_concept[:-1]
     )
+
+    iw_handler.initialize()
+    iw_handler.compute_prior_probabilities()
+    iw_handler.compute_past_concepts_probabilities()
+    iw_handler.compute_current_concept_probabilities()
+
+    weights_list = iw_handler.compute_true_weights()
+
+    current_concept_weights = np.ones(shape=iw_handler.current_concept.get_dataset().shape[0])
+    current_concept_weights = pd.DataFrame(current_concept_weights)
+    weights_list.append(current_concept_weights)
+
+    imp_weights = pd.DataFrame()
+    for weights in weights_list:
+        imp_weights = pd.concat([imp_weights, weights], axis=0)
+
+    imp_weights = imp_weights.to_numpy()
 
     importance_weights = iw_handler.run()
 

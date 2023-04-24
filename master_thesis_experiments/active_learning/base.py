@@ -30,7 +30,7 @@ class BaseLearner:
         dataset = pd.DataFrame()
         for concept in self.past_concepts:
             data = concept.get_dataset()
-            dataset = pd.concat([dataset, data], axis=0)
+            dataset = pd.concat([dataset, data], axis=0, ignore_index=True)
 
         self.past_dataset = DataProvider('past_dataset', dataset)
         output_column = dataset.columns[-1]
