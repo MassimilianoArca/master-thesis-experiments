@@ -8,7 +8,7 @@ from master_thesis_experiments.simulator_toolbox.data_provider.base import DataP
 from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import logger
 
 
-class BaseLearner:
+class BaseStrategy:
 
     def __init__(self, concept_mapping, concept_list, n_samples, estimator_type: DensityEstimator()):
         self.concept_mapping = concept_mapping
@@ -23,6 +23,7 @@ class BaseLearner:
         self.classes = []
         self.past_dataset = None
         self.enriched_concept = None
+        self.name = ''
 
     def initialize(self):
         logger.info("Initializing the learner...")
@@ -77,8 +78,7 @@ class BaseLearner:
     def add_samples_to_concept(self):
         logger.debug("Adding samples to current concept...")
 
-        last_concept = self.current_concept
-        self.enriched_concept = last_concept.add_samples(self.selected_samples)
+        self.current_concept.add_samples(self.selected_samples)
 
     @abstractmethod
     def run(self):

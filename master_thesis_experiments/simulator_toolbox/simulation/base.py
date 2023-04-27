@@ -21,100 +21,89 @@ class Simulation:
     """
 
     def __init__(
-            self, name, generator, strategies, results_dir, base_learners
+            self,
+            name,
+            generator,
+            strategies,
+            results_dir,
+            n_samples,
+            estimator_type
     ):
         self.name = name
         self.generator = generator
-        self.base_learners = base_learners
         self.strategies = strategies
+        self.n_samples = n_samples
+        self.estimator_type = estimator_type
 
         self.start_time = datetime.now()
 
         self.metadata = None
+        self.strategy_instances = []
         self.concept_mapping = {}
         self.concepts: List[DataProvider] = []
         self.prior_probs_per_concept = []
 
-        # results to be saved
-        self.experiments_metadata = []
-
-        # generated datasets
-        self.strategy_logs = {}
+        self.strategy_post_AL_weights = {}
 
         self.sim_id = self.start_time.strftime("%d-%m-%Y-%H:%M")
 
         path = results_dir + '/' + name + '/' + self.sim_id
         self.simulation_results_dir = path
 
-        for strategy in strategies:
-            self.strategy_logs[strategy.name] = []
-
-    def init_models(self):
-        """
-        This method loads ml models to init the simulation
-        """
-        for i, concept in enumerate(self.concepts[:-1]):
-            X, y = split_dataframe_xy(concept.get_dataset())
-
-            for learner in self.base_learners:
-                learner.fit(X, y)
-                self.concept_mapping['concept_' + str(i)]['classifier'] = learner
+        self.true_weights = []
+        self.pre_AL_weights = []
 
     def run(self):
         raise NotImplementedError
 
     def store_results(self, experiment_index):
 
-        training_path = Path(
+        concepts_path = Path(
             self.simulation_results_dir
             + "/"
             + str(experiment_index)
-            + '/training.csv'
         )
-        training_path.parent.mkdir(parents=True, exist_ok=True)
-        self.generated_dataset['training'].to_csv(training_path, index=False)
+        concepts_path.mkdir(parents=True, exist_ok=True)
 
-        # save generation metadata
-        metadata_file = (
-                self.simulation_results_dir
-                + "/"
-                + str(experiment_index)
-                + '/metadata.json'
-        )
-        with open(metadata_file, 'w') as metadata_file:
-            json.dump(self.metadata, metadata_file)
+        # Save concepts
+        for concept in self.concepts:
+            concept_path = concepts_path / str(concept.name + ".csv")
+            concept.generated_dataset.to_csv(concept_path, index=False)
 
-        # save generation metadata
-        train_time_file = (
-                self.simulation_results_dir
-                + "/"
-                + str(experiment_index)
-                + '/train_times.json'
-        )
-        with open(train_time_file, 'w') as train_time_file:
-            json.dump(self.train_time, train_time_file)
+        # Save weights
 
-        # Save production with predictions
-        scored_dataframe = deepcopy(self.generated_dataset['production'])
-        for model_index, model_predictions in enumerate(
-                self.unmanaged_predictions
-        ):
-            column_name = 'UNMANAGED_' + str(model_index)
-            scored_dataframe[column_name] = model_predictions
-        for model_index, model_predictions in enumerate(
-                self.managed_predictions
-        ):
-            column_name = 'MANAGED_' + str(model_index)
-            scored_dataframe[column_name] = model_predictions
-        scored_dataframe['EXPERT'] = self.expert_predictions
-        scored_path = Path(
+        true_weights_path = Path(
             self.simulation_results_dir
             + "/"
             + str(experiment_index)
-            + '/scored.csv'
+            + "/true_weights.json"
         )
-        scored_path.parent.mkdir(parents=True, exist_ok=True)
-        scored_dataframe.to_csv(scored_path, index=False)
+
+        with open(true_weights_path, "w") as fp:
+            json.dump(self.true_weights, fp)
+
+        pre_AL_weights_path = Path(
+            self.simulation_results_dir
+            + "/"
+            + str(experiment_index)
+            + "/pre_AL_weights.json"
+        )
+
+        with open(pre_AL_weights_path, "w") as fp:
+            json.dump(self.pre_AL_weights, fp)
+
+        post_AL_weights_path = Path(
+            self.simulation_results_dir
+            + "/"
+            + str(experiment_index)
+        )
+        post_AL_weights_path.parent.mkdir(parents=True, exist_ok=True)
+
+        for strategy in self.strategy_instances:
+            strategy_weights = self.strategy_post_AL_weights[strategy.name]
+
+            with open(post_AL_weights_path / str(strategy.name + ".json"), 'w') as fp:
+                json.dump(strategy_weights, fp)
 
     def soft_reset(self):
         self.generator.reset()
@@ -122,7 +111,5 @@ class Simulation:
         # attributes for generator
         self.metadata = None
         self.concept_mapping = {}
+        self.strategy_instances = []
 
-        # results to be saved
-        self.experiments_metadata = []
-        self.strategy_logs = {}

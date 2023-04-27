@@ -5,14 +5,14 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import pairwise
 
-from master_thesis_experiments.active_learning.base import BaseLearner
+from master_thesis_experiments.active_learning.base import BaseStrategy
 from master_thesis_experiments.adaptation.density_estimation import DensityEstimator, MultivariateNormalEstimator
-from master_thesis_experiments.main.synth_classification_simulation import SynthClassificationSimulation
+#from master_thesis_experiments.main.synth_classification_simulation import SynthClassificationSimulation
 from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import logger, \
     SynthClassificationGenerator
 
 
-class UncertaintySpreadingLearner(BaseLearner):
+class UncertaintySpreadingStrategy(BaseStrategy):
 
     def __init__(self, concept_mapping, concept_list, n_samples, estimator_type: DensityEstimator()):
         super().__init__(
@@ -21,6 +21,7 @@ class UncertaintySpreadingLearner(BaseLearner):
             n_samples,
             estimator_type
         )
+        self.name = 'UncertaintySpreading'
         self.classifiers = {}
 
         self.n_past_samples = None
@@ -185,32 +186,36 @@ class UncertaintySpreadingLearner(BaseLearner):
             self.select_samples()
 
             n_samples -= 1
+        new_concept_list = self.concept_list
+        new_concept_list[-1] = self.current_concept
+        return new_concept_list
 
 
-if __name__ == '__main__':
-    simulation = SynthClassificationSimulation(
-        name='prova',
-        generator=SynthClassificationGenerator(
-            n_features=6,
-            n_outputs=1,
-            n_classes=4,
-        ),
-        strategies=[],
-        base_learners=[],
-        results_dir=''
-    )
-
-    simulation.generate_dataset(
-        n_concepts=10,
-        concept_size=60,
-        last_concept_size=50
-    )
-
-    sampler = UncertaintySpreadingLearner(
-        concept_mapping=simulation.concept_mapping,
-        concept_list=simulation.concepts,
-        n_samples=10,
-        estimator_type=MultivariateNormalEstimator
-    )
-    sampler.run()
-    print("ok")
+# if __name__ == '__main__':
+#     simulation = SynthClassificationSimulation(
+#         name='synth_classification',
+#         generator=SynthClassificationGenerator(
+#             n_features=6,
+#             n_outputs=1,
+#             n_classes=4,
+#         ),
+#         strategies=[],
+#         results_dir='',
+#         n_samples=10,
+#         estimator_type=MultivariateNormalEstimator
+#     )
+#
+#     simulation.generate_dataset(
+#         n_concepts=10,
+#         concept_size=60,
+#         last_concept_size=50
+#     )
+#
+#     sampler = UncertaintySpreadingStrategy(
+#         concept_mapping=simulation.concept_mapping,
+#         concept_list=simulation.concepts,
+#         n_samples=simulation.n_samples,
+#         estimator_type=simulation.estimator_type
+#     )
+#     sampler.run()
+#     print("ok")

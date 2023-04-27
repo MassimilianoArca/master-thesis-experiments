@@ -5,7 +5,6 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 
 from master_thesis_experiments.adaptation.density_estimation import DensityEstimator, MultivariateNormalEstimator
-from master_thesis_experiments.main.synth_classification_simulation import SynthClassificationSimulation
 from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import \
     SynthClassificationGenerator, logger
 
@@ -153,7 +152,27 @@ class IWHandler:
 
         return self.true_weights_per_concept
 
-    def run(self):
+    def run_true_weights(self):
+        self.initialize()
+        self.compute_prior_probabilities()
+        self.compute_past_concepts_probabilities()
+        self.compute_current_concept_probabilities()
+
+        weights_list = self.compute_true_weights()
+
+        current_concept_weights = np.ones(shape=self.current_concept.get_dataset().shape[0])
+        current_concept_weights = pd.DataFrame(current_concept_weights)
+        weights_list.append(current_concept_weights)
+
+        imp_weights = pd.DataFrame()
+        for weights in weights_list:
+            imp_weights = pd.concat([imp_weights, weights], axis=0)
+
+        imp_weights = imp_weights.to_numpy()
+
+        return imp_weights.flatten()
+
+    def run_weights(self):
 
         self.initialize()
         self.compute_prior_probabilities()
@@ -179,42 +198,31 @@ class IWHandler:
         imp_weights = imp_weights.to_numpy()
         return imp_weights.flatten()
 
-
-if __name__ == '__main__':
-    simulation = SynthClassificationSimulation(
-        name='prova',
-        generator=SynthClassificationGenerator(2, 1, 3),
-        strategies=[],
-        base_learners=[],
-        results_dir=''
-    )
-
-    simulation.generate_dataset(3, 50, 30)
-
-    iw_handler = IWHandler(
-        concept_mapping=simulation.concept_mapping,
-        concept_list=simulation.concepts,
-        estimator_type=MultivariateNormalEstimator,
-        prior_class_probabilities=simulation.prior_probs_per_concept[:-1]
-    )
-
-    iw_handler.initialize()
-    iw_handler.compute_prior_probabilities()
-    iw_handler.compute_past_concepts_probabilities()
-    iw_handler.compute_current_concept_probabilities()
-
-    weights_list = iw_handler.compute_true_weights()
-
-    current_concept_weights = np.ones(shape=iw_handler.current_concept.get_dataset().shape[0])
-    current_concept_weights = pd.DataFrame(current_concept_weights)
-    weights_list.append(current_concept_weights)
-
-    imp_weights = pd.DataFrame()
-    for weights in weights_list:
-        imp_weights = pd.concat([imp_weights, weights], axis=0)
-
-    imp_weights = imp_weights.to_numpy()
-
-    importance_weights = iw_handler.run()
-
-    print(importance_weights)
+# if __name__ == '__main__':
+#     simulation = SynthClassificationSimulation(
+#         name='synth_classification',
+#         generator=SynthClassificationGenerator(2, 1, 3),
+#         strategies=[],
+#         results_dir=''
+#     )
+#
+#     simulation.generate_dataset(3, 100, 80)
+#
+#     iw_handler = IWHandler(
+#         concept_mapping=simulation.concept_mapping,
+#         concept_list=simulation.concepts,
+#         estimator_type=MultivariateNormalEstimator,
+#         prior_class_probabilities=simulation.prior_probs_per_concept[:-1]
+#     )
+#
+#     true_weights = iw_handler.run_true_weights()
+#
+#     importance_weights = iw_handler.run_weights()
+#
+#     difference = np.abs(np.array(true_weights) - np.array(importance_weights))
+#
+#     mae = np.mean(np.abs(np.array(true_weights) - np.array(importance_weights)))
+#
+#     print('Difference: ', difference)
+#     print('\n')
+#     print('MAE: ', mae)

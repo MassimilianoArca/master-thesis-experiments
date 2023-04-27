@@ -104,3 +104,11 @@ class SynthClassificationGenerator(Generator):
         batch_df = pd.DataFrame(data, columns=self.columns_names)
 
         return deepcopy(batch_df)
+
+    def reset(self):
+
+        self.mean_values = np.zeros(self.size)
+        self._cov_values = []
+        self.covariance_matrices = np.zeros((self.n_classes, self.size, self.size))
+        self.prior_probs = []
+

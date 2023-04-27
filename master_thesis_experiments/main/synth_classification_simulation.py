@@ -1,13 +1,22 @@
+from copy import deepcopy
+
+from master_thesis_experiments.active_learning.base import BaseStrategy
+from master_thesis_experiments.adaptation.density_estimation import MultivariateNormalEstimator
+from master_thesis_experiments.importance.simple import IWHandler
 from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
 from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import \
     SynthClassificationGenerator, logger
 from sklearn import preprocessing
 import numpy as np
+from tqdm import tqdm
 from scipy.stats import multivariate_normal
 from sklearn.naive_bayes import GaussianNB
 
 from master_thesis_experiments.simulator_toolbox.simulation.base import Simulation
-from master_thesis_experiments.simulator_toolbox.utils import split_dataframe_xy
+from master_thesis_experiments.simulator_toolbox.utils import split_dataframe_xy, get_root_level_dir
+from master_thesis_experiments.active_learning.uncertainty_spreading import UncertaintySpreadingStrategy
+from master_thesis_experiments.active_learning.random_sampling import RandomSamplingStrategy
+from master_thesis_experiments.active_learning.first_k_sampling import FirstKSamplingStrategy
 
 
 class SynthClassificationSimulation(Simulation):
@@ -23,14 +32,6 @@ class SynthClassificationSimulation(Simulation):
         logger.debug('Generating the dataset...')
 
         scaler = preprocessing.StandardScaler()
-
-        self.metadata = {
-            "dataset_name": self.generator.name,
-            "task": "classification",
-            "type": "synth",
-            "concept_size": concept_size,
-            "last_concept_size": last_concept_size
-        }
 
         n = self.generator.size
         triangular_size = int(n * (n + 1) / 2)
@@ -64,19 +65,90 @@ class SynthClassificationSimulation(Simulation):
             scaler.fit_transform(dataset)
             self.concepts.append(DataProvider('concept_' + str(i), dataset))
 
+        self.metadata = {
+            "dataset_name": self.generator.name,
+            "task": "classification",
+            "type": "synth",
+            "n_concepts": n_concepts,
+            "concept_size": concept_size,
+            "last_concept_size": last_concept_size,
+            "prior_probs_per_concept": self.prior_probs_per_concept,
+        }
+
     def run(self):
-        pass
+
+        iw_handler = IWHandler(
+            concept_mapping=simulation.concept_mapping,
+            concept_list=simulation.concepts,
+            estimator_type=simulation.estimator_type,
+            prior_class_probabilities=simulation.prior_probs_per_concept[:-1]
+        )
+
+        # compute true weights
+        self.true_weights = iw_handler.run_true_weights().tolist()
+
+        # compute pre-AL weights
+        self.pre_AL_weights = iw_handler.run_weights().tolist()
+
+        for strategy in self.strategies:
+            strategy_instance: BaseStrategy = strategy(
+                concept_mapping=deepcopy(self.concept_mapping),
+                concept_list=deepcopy(self.concepts),
+                n_samples=self.n_samples,
+                estimator_type=self.estimator_type
+            )
+            self.strategy_instances.append(strategy_instance)
+
+            new_concept_list = strategy_instance.run()
+
+            # compute post-AL weights
+            iw_handler = IWHandler(
+                concept_mapping=simulation.concept_mapping,
+                concept_list=new_concept_list,
+                estimator_type=simulation.estimator_type,
+                prior_class_probabilities=simulation.prior_probs_per_concept[:-1]
+            )
+
+            self.strategy_post_AL_weights[strategy_instance.name] = iw_handler.run_weights().tolist()
 
 
 if __name__ == '__main__':
+
+    N_EXPERIMENTS = 10
+
+    N_FEATURES = 4
+    N_CLASSES = 3
+
+    N_CONCEPTS = 5
+    CONCEPT_SIZE = 100
+    LAST_CONCEPT_SIZE = 60
+
     simulation = SynthClassificationSimulation(
-        name='prova',
-        generator=SynthClassificationGenerator(3, 1, 2),
-        strategies=[],
-        base_learners=[],
-        results_dir=''
+        name='synth_classification',
+        generator=SynthClassificationGenerator(
+            n_features=N_FEATURES,
+            n_outputs=1,
+            n_classes=N_CLASSES
+        ),
+        strategies=[
+            UncertaintySpreadingStrategy,
+            RandomSamplingStrategy,
+            FirstKSamplingStrategy
+        ],
+        results_dir=get_root_level_dir('results'),
+        n_samples=10,
+        estimator_type=MultivariateNormalEstimator
     )
 
-    simulation.generate_dataset(3, 100, 30)
+    for experiment in tqdm(range(N_EXPERIMENTS)):
+        simulation.generate_dataset(
+            n_concepts=N_CONCEPTS,
+            concept_size=CONCEPT_SIZE,
+            last_concept_size=LAST_CONCEPT_SIZE
+        )
 
-    print(simulation.concepts[0].get_dataset())
+        simulation.run()
+
+        simulation.store_results(experiment)
+
+        simulation.soft_reset()

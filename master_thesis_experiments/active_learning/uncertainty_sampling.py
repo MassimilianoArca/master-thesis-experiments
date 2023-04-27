@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import math
 
-from master_thesis_experiments.active_learning.base import BaseLearner
+from master_thesis_experiments.active_learning.base import BaseStrategy
 from master_thesis_experiments.adaptation.density_estimation import MultivariateNormalEstimator, DensityEstimator
 from sklearn.linear_model import LogisticRegression
 
@@ -16,7 +16,7 @@ from sklearn.metrics import jaccard_score
 from sklearn.metrics.pairwise import pairwise_distances
 
 
-class UncertaintySamplingLearner(BaseLearner):
+class UncertaintySamplingStrategy(BaseStrategy):
 
     def __init__(self, concept_mapping, concept_list, n_samples, estimator_type: DensityEstimator()):
         super().__init__(
@@ -176,27 +176,28 @@ class UncertaintySamplingLearner(BaseLearner):
         self.add_samples_to_concept()
 
         new_concepts_list = self.concept_list
-        new_concepts_list[-1] = self.enriched_concept
+        new_concepts_list[-1] = self.current_concept
 
         return new_concepts_list
 
 
 if __name__ == '__main__':
     simulation = SynthClassificationSimulation(
-        name='prova',
+        name='synth_classification',
         generator=SynthClassificationGenerator(4, 1, 3),
         strategies=[],
-        base_learners=[],
-        results_dir=''
+        results_dir='',
+        n_samples=10,
+        estimator_type=MultivariateNormalEstimator
     )
 
     simulation.generate_dataset(10, 60, 50)
 
-    sampler = UncertaintySamplingLearner(
+    sampler = UncertaintySamplingStrategy(
         concept_mapping=simulation.concept_mapping,
         concept_list=simulation.concepts,
-        n_samples=10,
-        estimator_type=MultivariateNormalEstimator
+        n_samples=simulation.n_samples,
+        estimator_type=simulation.estimator_type
     )
     sampler.initialize()
     sampler.compute_representativeness_matrix()
