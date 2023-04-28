@@ -18,6 +18,10 @@ class RandomSamplingStrategy(BaseStrategy):
         )
         self.name = 'RandomSampling'
 
+    def initialize(self):
+        if self.past_dataset is None:
+            super().initialize()
+
     def select_samples(self):
         logger.debug("Selecting samples...")
         logger.info("Selecting samples...")
@@ -25,8 +29,9 @@ class RandomSamplingStrategy(BaseStrategy):
         past_dataset = self.past_dataset.get_dataset()
 
         sample_indexes = past_dataset.index.values.tolist()
-        random_indexes = random.sample(sample_indexes, k=self.n_samples)
+        random_indexes = random.sample(sample_indexes, k=1)
         selected_samples = self.past_dataset.get_data_from_ids(random_indexes)
+        self.past_dataset.delete_sample(random_indexes)
         self.selected_samples = selected_samples.to_numpy()
 
     def run(self):
@@ -42,28 +47,3 @@ class RandomSamplingStrategy(BaseStrategy):
         new_concepts_list[-1] = self.current_concept
 
         return new_concepts_list
-
-
-# if __name__ == '__main__':
-#     simulation = SynthClassificationSimulation(
-#         name='synth_classification',
-#         generator=SynthClassificationGenerator(4, 1, 3),
-#         strategies=[],
-#         results_dir='',
-#         n_samples=10,
-#         estimator_type=MultivariateNormalEstimator
-#     )
-#
-#     simulation.generate_dataset(10, 60, 50)
-#
-#     sampler = RandomSamplingStrategy(
-#         concept_mapping=simulation.concept_mapping,
-#         concept_list=simulation.concepts,
-#         n_samples=simulation.n_samples,
-#         estimator_type=simulation.estimator_type
-#     )
-#     sampler.initialize()
-#     sampler.estimate_new_concept()
-#     sampler.select_samples()
-#     sampler.relabel_samples()
-#     sampler.add_samples_to_concept()

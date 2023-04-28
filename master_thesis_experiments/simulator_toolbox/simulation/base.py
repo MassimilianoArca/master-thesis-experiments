@@ -92,18 +92,21 @@ class Simulation:
         with open(pre_AL_weights_path, "w") as fp:
             json.dump(self.pre_AL_weights, fp)
 
-        post_AL_weights_path = Path(
-            self.simulation_results_dir
-            + "/"
-            + str(experiment_index)
-        )
-        post_AL_weights_path.parent.mkdir(parents=True, exist_ok=True)
+        for key in self.strategy_post_AL_weights:
 
-        for strategy in self.strategy_instances:
-            strategy_weights = self.strategy_post_AL_weights[strategy.name]
+            post_AL_weights_path = Path(
+                self.simulation_results_dir
+                + "/"
+                + str(experiment_index)
+                + "/"
+                + str(key[0])
+                + "/"
+                + str(str(key[1]) + "_samples" + ".json")
+            )
+            post_AL_weights_path.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(post_AL_weights_path / str(strategy.name + ".json"), 'w') as fp:
-                json.dump(strategy_weights, fp)
+            with open(post_AL_weights_path, 'w') as fp:
+                json.dump(self.strategy_post_AL_weights[key], fp)
 
     def soft_reset(self):
         self.generator.reset()

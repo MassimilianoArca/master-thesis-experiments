@@ -178,44 +178,13 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         self.current_concept.add_samples([self.selected_samples[0].T])
 
     def run(self):
-        n_samples = self.n_samples
-        while n_samples > 0:
-            self.initialize()
-            self.build_past_classifiers()
-            self.estimate_new_concept()
-            self.select_samples()
 
-            n_samples -= 1
+        self.initialize()
+        self.build_past_classifiers()
+        self.estimate_new_concept()
+        self.select_samples()
+
         new_concept_list = self.concept_list
         new_concept_list[-1] = self.current_concept
         return new_concept_list
 
-
-# if __name__ == '__main__':
-#     simulation = SynthClassificationSimulation(
-#         name='synth_classification',
-#         generator=SynthClassificationGenerator(
-#             n_features=6,
-#             n_outputs=1,
-#             n_classes=4,
-#         ),
-#         strategies=[],
-#         results_dir='',
-#         n_samples=10,
-#         estimator_type=MultivariateNormalEstimator
-#     )
-#
-#     simulation.generate_dataset(
-#         n_concepts=10,
-#         concept_size=60,
-#         last_concept_size=50
-#     )
-#
-#     sampler = UncertaintySpreadingStrategy(
-#         concept_mapping=simulation.concept_mapping,
-#         concept_list=simulation.concepts,
-#         n_samples=simulation.n_samples,
-#         estimator_type=simulation.estimator_type
-#     )
-#     sampler.run()
-#     print("ok")

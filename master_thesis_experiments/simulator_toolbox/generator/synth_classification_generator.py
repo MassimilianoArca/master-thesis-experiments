@@ -112,3 +112,32 @@ class SynthClassificationGenerator(Generator):
         self.covariance_matrices = np.zeros((self.n_classes, self.size, self.size))
         self.prior_probs = []
 
+    def apply_noise(self):
+        """
+        function to apply noise to mean and cov
+        """
+        mean_noise = np.random.uniform(-0.1, 0.1, self.size)
+        cov_noise = np.random.uniform(-0.5,
+                                      0.5,
+                                      self.size * self.size)
+        cov_noise = cov_noise.reshape([self.size, self.size])
+
+        self.mean_values += mean_noise
+        self.covariance_matrices += cov_noise
+
+    def rotate(self, d1, d2, theta):
+        """
+        apply rotation to cov matrix
+        d1, d2 are dimensions of the plane the rotation takes place
+        """
+        c, s = np.cos(theta), np.sin(theta)
+        rotation_matrix = np.identity(self.size)
+        rotation_matrix[d1][d1] = c
+        rotation_matrix[d1][d2] = -s
+        rotation_matrix[d2][d1] = s
+        rotation_matrix[d2][d2] = c
+        # rotation_matrix = np.array([[c, -s], [s, c]])
+
+        self.covariance_matrices = (
+                rotation_matrix @ self.covariance_matrices @ rotation_matrix.T
+        )
