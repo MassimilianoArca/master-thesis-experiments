@@ -8,8 +8,9 @@ from sklearn.metrics import pairwise
 from master_thesis_experiments.active_learning.base import BaseStrategy
 from master_thesis_experiments.adaptation.density_estimation import DensityEstimator, MultivariateNormalEstimator
 #from master_thesis_experiments.main.synth_classification_simulation import SynthClassificationSimulation
-from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import logger, \
-    SynthClassificationGenerator
+from master_thesis_experiments.simulator_toolbox.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class UncertaintySpreadingStrategy(BaseStrategy):

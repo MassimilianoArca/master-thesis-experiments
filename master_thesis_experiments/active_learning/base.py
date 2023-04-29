@@ -5,7 +5,9 @@ import pandas as pd
 
 from master_thesis_experiments.adaptation.density_estimation import DensityEstimator
 from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
-from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import logger
+from master_thesis_experiments.simulator_toolbox.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class BaseStrategy:
@@ -26,7 +28,6 @@ class BaseStrategy:
         self.name = ''
 
     def initialize(self):
-        logger.info("Initializing the learner...")
 
         dataset = pd.DataFrame()
         for concept in self.past_concepts:

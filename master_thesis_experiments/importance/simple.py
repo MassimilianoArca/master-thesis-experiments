@@ -5,8 +5,9 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 
 from master_thesis_experiments.adaptation.density_estimation import DensityEstimator, MultivariateNormalEstimator
-from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import \
-    SynthClassificationGenerator, logger
+from master_thesis_experiments.simulator_toolbox.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class IWHandler:

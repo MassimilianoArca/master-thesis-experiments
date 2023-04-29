@@ -5,7 +5,7 @@ from master_thesis_experiments.adaptation.density_estimation import Multivariate
 from master_thesis_experiments.importance.simple import IWHandler
 from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
 from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import \
-    SynthClassificationGenerator, logger
+    SynthClassificationGenerator
 from sklearn import preprocessing
 import numpy as np
 from tqdm import tqdm
@@ -17,6 +17,10 @@ from master_thesis_experiments.simulator_toolbox.utils import split_dataframe_xy
 from master_thesis_experiments.active_learning.uncertainty_spreading import UncertaintySpreadingStrategy
 from master_thesis_experiments.active_learning.random_sampling import RandomSamplingStrategy
 from master_thesis_experiments.active_learning.first_k_sampling import FirstKSamplingStrategy
+
+from master_thesis_experiments.simulator_toolbox.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class SynthClassificationSimulation(Simulation):
@@ -91,7 +95,7 @@ class SynthClassificationSimulation(Simulation):
 
             # perturbation of the prior probabilities
             # self.generator.prior_probs = something
-            self.prior_probs_per_concept.append(self.generator.prior_probs)
+            self.prior_probs_per_concept.append(self.generator.prior_probs.tolist())
 
             if i != n_concepts - 1:
                 dataset = self.generator.generate(concept_size)
@@ -103,12 +107,14 @@ class SynthClassificationSimulation(Simulation):
 
         self.metadata = {
             "dataset_name": self.generator.name,
+            "past_dataset_size": (n_concepts - 1) * concept_size,
             "task": "classification",
             "type": "synth",
             "n_concepts": n_concepts,
             "concept_size": concept_size,
             "last_concept_size": last_concept_size,
             "prior_probs_per_concept": self.prior_probs_per_concept,
+            "n_samples": self.n_samples,
         }
 
     def run(self):
@@ -156,12 +162,14 @@ if __name__ == '__main__':
 
     N_EXPERIMENTS = 1
 
+    N_SAMPLES = 100
+
     N_FEATURES = 2
     N_CLASSES = 3
 
     N_CONCEPTS = 5
-    CONCEPT_SIZE = 100
-    LAST_CONCEPT_SIZE = 60
+    CONCEPT_SIZE = 300
+    LAST_CONCEPT_SIZE = 100
 
     simulation = SynthClassificationSimulation(
         name='synth_classification_fixed_dataset_and_samples',
@@ -176,7 +184,7 @@ if __name__ == '__main__':
             # FirstKSamplingStrategy
         ],
         results_dir=get_root_level_dir('results'),
-        n_samples=10,
+        n_samples=N_SAMPLES,
         estimator_type=MultivariateNormalEstimator
     )
 

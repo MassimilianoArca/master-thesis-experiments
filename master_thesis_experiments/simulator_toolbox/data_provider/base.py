@@ -71,7 +71,10 @@ class DataProvider:
         return a dataframe from ids
         """
         df = self.get_dataset()
-        return df.iloc[ids]
+        try:
+            return df.loc[ids]
+        except IndexError:
+            print(f'Got indexes {ids} while dataset has indexes {df.index}')
 
     def add_samples(self, samples_list):
         df = pd.DataFrame(samples_list, columns=self.generated_dataset.columns)

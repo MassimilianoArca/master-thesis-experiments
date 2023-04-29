@@ -72,6 +72,7 @@ class Simulation:
 
         # Save weights
 
+        self.true_weights = self.true_weights[:self.metadata["past_dataset_size"]]
         true_weights_path = Path(
             self.simulation_results_dir
             + "/"
@@ -82,6 +83,7 @@ class Simulation:
         with open(true_weights_path, "w") as fp:
             json.dump(self.true_weights, fp)
 
+        self.pre_AL_weights = self.pre_AL_weights[:self.metadata["past_dataset_size"]]
         pre_AL_weights_path = Path(
             self.simulation_results_dir
             + "/"
@@ -93,7 +95,6 @@ class Simulation:
             json.dump(self.pre_AL_weights, fp)
 
         for key in self.strategy_post_AL_weights:
-
             post_AL_weights_path = Path(
                 self.simulation_results_dir
                 + "/"
@@ -105,8 +106,19 @@ class Simulation:
             )
             post_AL_weights_path.parent.mkdir(parents=True, exist_ok=True)
 
+            self.strategy_post_AL_weights[key] = self.strategy_post_AL_weights[key][:self.metadata["past_dataset_size"]]
             with open(post_AL_weights_path, 'w') as fp:
                 json.dump(self.strategy_post_AL_weights[key], fp)
+
+        # save generation metadata
+        metadata_file = (
+                self.simulation_results_dir
+                + "/"
+                + str(experiment_index)
+                + '/metadata.json'
+        )
+        with open(metadata_file, 'w') as metadata_file:
+            json.dump(self.metadata, metadata_file)
 
     def soft_reset(self):
         self.generator.reset()
@@ -115,4 +127,3 @@ class Simulation:
         self.metadata = None
         self.concept_mapping = {}
         self.strategy_instances = []
-

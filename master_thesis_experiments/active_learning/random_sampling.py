@@ -3,8 +3,9 @@ import random
 from master_thesis_experiments.active_learning.base import BaseStrategy
 from master_thesis_experiments.adaptation.density_estimation import MultivariateNormalEstimator, DensityEstimator
 # from master_thesis_experiments.main.synth_classification_simulation import SynthClassificationSimulation
-from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import \
-    SynthClassificationGenerator, logger
+from master_thesis_experiments.simulator_toolbox.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class RandomSamplingStrategy(BaseStrategy):
@@ -24,7 +25,6 @@ class RandomSamplingStrategy(BaseStrategy):
 
     def select_samples(self):
         logger.debug("Selecting samples...")
-        logger.info("Selecting samples...")
 
         past_dataset = self.past_dataset.get_dataset()
 
@@ -36,7 +36,7 @@ class RandomSamplingStrategy(BaseStrategy):
 
     def run(self):
         logger.debug("Running Random Sampling Strategy...")
-        logger.info("Running Random Sampling Strategy...")
+
         self.initialize()
         self.estimate_new_concept()
         self.select_samples()
