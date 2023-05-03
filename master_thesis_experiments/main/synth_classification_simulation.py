@@ -10,13 +10,10 @@ from sklearn import preprocessing
 import numpy as np
 from tqdm import tqdm
 from scipy.stats import multivariate_normal
-from sklearn.naive_bayes import GaussianNB
 
 from master_thesis_experiments.simulator_toolbox.simulation.base import Simulation
-from master_thesis_experiments.simulator_toolbox.utils import split_dataframe_xy, get_root_level_dir
-from master_thesis_experiments.active_learning.uncertainty_spreading import UncertaintySpreadingStrategy
+from master_thesis_experiments.simulator_toolbox.utils import get_root_level_dir
 from master_thesis_experiments.active_learning.random_sampling import RandomSamplingStrategy
-from master_thesis_experiments.active_learning.first_k_sampling import FirstKSamplingStrategy
 
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
@@ -61,17 +58,19 @@ class SynthClassificationSimulation(Simulation):
         n = self.generator.size
         triangular_size = int(n * (n + 1) / 2)
 
+        theta_values = [np.pi, np.pi/2, np.pi/4, 3*np.pi/4]
+
         self.mean_values = [
-            np.random.uniform(0, 8, self.generator.size) for _ in range(self.generator.n_classes)
+            np.random.uniform(0, 10, self.generator.size) for _ in range(self.generator.n_classes)
         ]
         self.cov_values = [
-            np.random.uniform(6, 9, triangular_size) for _ in range(self.generator.n_classes)
+            np.random.uniform(1, 3, triangular_size) for _ in range(self.generator.n_classes)
         ]
 
         self.generator.mean_values = self.mean_values
         self.generator.cov_values = self.cov_values
 
-        alpha = 3
+        alpha = 2
         # the higher the alpha, the more balanced the prior probabilities
         self.generator.prior_probs = np.random.dirichlet(alpha * np.ones(self.generator.n_classes))
 
@@ -79,9 +78,19 @@ class SynthClassificationSimulation(Simulation):
             self.concept_mapping['concept_' + str(i)] = {}
 
             # perturbation of the means and cov matrices
-            mean_noises = [np.random.uniform(-0.1, 0.1, self.generator.size) for _ in range(self.generator.n_classes)]
+            mean_noises = [np.random.uniform(-2, 2, self.generator.size) for _ in range(self.generator.n_classes)]
+
+            # choose two random dimensions
+            dims = np.random.choice(list(range(self.generator.size)), size=2, replace=False)
+
+            # rotate a random class cov matrix per concept
+            class_matrix = np.random.choice(list(range(len(self.generator.covariance_matrices))), size=1, replace=False)
+            theta = np.random.choice(theta_values, size=1)
+
+            self.generator.rotate(dims[0], dims[1], theta, class_matrix)
+
             cov_values_noises = [np.random.uniform(
-                -0.5, 0.5, triangular_size
+                -3, 3, triangular_size
             ) for _ in range(self.generator.n_classes)]
 
             for class_ in range(self.generator.n_classes):
@@ -123,7 +132,7 @@ class SynthClassificationSimulation(Simulation):
             concept_mapping=simulation.concept_mapping,
             concept_list=simulation.concepts,
             estimator_type=simulation.estimator_type,
-            prior_class_probabilities=simulation.prior_probs_per_concept[:-1]
+            prior_class_probabilities=simulation.prior_probs_per_concept
         )
 
         # compute true weights
@@ -141,19 +150,19 @@ class SynthClassificationSimulation(Simulation):
             )
             self.strategy_instances.append(strategy_instance)
 
+            strategy_instance.initialize()
+            strategy_instance.estimate_new_concept()
+
             n_samples = self.n_samples
             while n_samples > 0:
                 new_concept_list = strategy_instance.run()
 
                 # compute post-AL weights
-                iw_handler = IWHandler(
-                    concept_mapping=simulation.concept_mapping,
-                    concept_list=new_concept_list,
-                    estimator_type=simulation.estimator_type,
-                    prior_class_probabilities=simulation.prior_probs_per_concept[:-1]
-                )
+                iw_handler.concept_list = new_concept_list
                 n_selected_samples = self.n_samples - n_samples + 1
                 self.strategy_post_AL_weights[(strategy_instance.name, n_selected_samples)] = iw_handler.run_weights().tolist()
+
+                iw_handler.soft_reset()
 
                 n_samples -= 1
 
@@ -168,8 +177,8 @@ if __name__ == '__main__':
     N_CLASSES = 3
 
     N_CONCEPTS = 5
-    CONCEPT_SIZE = 300
-    LAST_CONCEPT_SIZE = 100
+    CONCEPT_SIZE = 1000
+    LAST_CONCEPT_SIZE = 300
 
     simulation = SynthClassificationSimulation(
         name='synth_classification_fixed_dataset_and_samples',
@@ -179,7 +188,7 @@ if __name__ == '__main__':
             n_classes=N_CLASSES
         ),
         strategies=[
-            UncertaintySpreadingStrategy,
+            # UncertaintySpreadingStrategy,
             RandomSamplingStrategy,
             # FirstKSamplingStrategy
         ],
@@ -193,6 +202,8 @@ if __name__ == '__main__':
         concept_size=CONCEPT_SIZE,
         last_concept_size=LAST_CONCEPT_SIZE
     )
+
+    # simulation.store_concepts()
 
     for experiment in tqdm(range(N_EXPERIMENTS)):
 

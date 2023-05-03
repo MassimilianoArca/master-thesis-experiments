@@ -4,10 +4,10 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import pairwise
+from sklearn.naive_bayes import GaussianNB
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
-from master_thesis_experiments.adaptation.density_estimation import DensityEstimator, MultivariateNormalEstimator
-#from master_thesis_experiments.main.synth_classification_simulation import SynthClassificationSimulation
+from master_thesis_experiments.adaptation.density_estimation import DensityEstimator
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
 logger = get_logger(__name__)
@@ -72,12 +72,12 @@ class UncertaintySpreadingStrategy(BaseStrategy):
             dataset = pd.concat([dataset, data], axis=0)
 
             X, y = concept.get_split_dataset()
-            classifier = LogisticRegression(multi_class='multinomial', solver='lbfgs')
+            classifier = GaussianNB()
             classifier.fit(X, y)
             self.classifiers[concept.name] = classifier
 
     def compute_new_samples_uncertainty(self):
-        logger.debug("Computing label per concept matrix...")
+        logger.debug("Computing new samples uncertainty...")
 
         X, y = self.current_concept.get_split_dataset()
         n_total_predictions = len(self.past_concepts)
@@ -99,7 +99,7 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         self.new_samples_uncertainty = pd.DataFrame(self.new_samples_uncertainty)
 
     def compute_past_samples_uncertainty(self):
-        logger.debug("Computing samples uncertainty...")
+        logger.debug("Computing past samples uncertainty...")
 
         # computing past samples uncertainty
         past_concepts_names = [past_concept.name for past_concept in self.past_concepts]
@@ -125,6 +125,7 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         self.past_samples_uncertainty = pd.DataFrame(self.past_samples_uncertainty)
 
     def compute_input_similarities(self):
+        logger.debug("Computing input similarities...")
 
         # gamma to be defined
         X_past, _ = self.past_dataset.get_split_dataset()
@@ -137,6 +138,7 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         self.new_samples_input_similarity = pd.DataFrame(self.new_samples_input_similarity).T
 
     def compute_target_similarities(self):
+        logger.debug("Computing target similarities...")
 
         self.past_samples_target_similarity = pairwise.pairwise_distances(
             X=self.past_samples_prediction_per_classifier, metric='jaccard'
@@ -151,6 +153,8 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         self.new_samples_target_similarity = pd.DataFrame(self.new_samples_target_similarity)
 
     def select_samples(self):
+        logger.debug("Selecting sample...")
+
         self.compute_new_samples_uncertainty()
         self.compute_past_samples_uncertainty()
         self.compute_input_similarities()
@@ -173,16 +177,14 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         index = uncertainty_vector.idxmax(axis=0)
         index = index.tolist()[0]
         sample = self.past_dataset.get_data_from_ids(index).to_numpy().ravel()
-        self.selected_samples.append(sample)
+        self.selected_sample = sample
         self.relabel_samples()
         self.past_dataset.delete_sample(index)
-        self.current_concept.add_samples([self.selected_samples[0].T])
+        self.current_concept.add_samples([self.selected_sample.T])
 
     def run(self):
 
-        self.initialize()
         self.build_past_classifiers()
-        self.estimate_new_concept()
         self.select_samples()
 
         new_concept_list = self.concept_list

@@ -1,18 +1,11 @@
 import json
-import os
-import pickle
-from copy import deepcopy
 from datetime import datetime
-from os.path import exists
 from pathlib import Path
 from typing import List
-
-from numpy import ndarray
 
 from master_thesis_experiments.simulator_toolbox.data_provider.base import (
     DataProvider,
 )
-from master_thesis_experiments.simulator_toolbox.utils import split_dataframe_xy
 
 
 class Simulation:
@@ -55,6 +48,25 @@ class Simulation:
 
     def run(self):
         raise NotImplementedError
+
+    def store_concepts(self):
+
+        concepts_path = Path(
+            self.simulation_results_dir
+        )
+        concepts_path.mkdir(parents=True, exist_ok=True)
+
+        # Save concepts
+        for concept in self.concepts:
+            concept_path = concepts_path / str(concept.name + ".csv")
+            concept.generated_dataset.to_csv(concept_path, index=False)
+
+        metadata_file = (
+                self.simulation_results_dir
+                + '/metadata.json'
+        )
+        with open(metadata_file, 'w') as metadata_file:
+            json.dump(self.metadata, metadata_file)
 
     def store_results(self, experiment_index):
 

@@ -7,7 +7,7 @@ from master_thesis_experiments.adaptation.density_estimation import DensityEstim
 from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger(__file__)
 
 
 class BaseStrategy:
@@ -20,7 +20,8 @@ class BaseStrategy:
 
         self.past_concepts = concept_list[:-1]
         self.current_concept = concept_list[-1]
-        self.selected_samples = []
+        self.selected_sample = None
+        self.all_selected_samples = []
         self.estimators = {}
         self.classes = []
         self.past_dataset = None
@@ -66,20 +67,20 @@ class BaseStrategy:
         # the new samples will be associated
         # the class y for which the p(x|y) is higher
 
-        for sample in self.selected_samples:
-            X = sample[:-1]
-            pdf = 0
-            for class_ in self.classes:
-                estimator = self.estimators[self.current_concept.name][class_]
-                estimator_pdf = estimator.pdf(X)
-                if estimator_pdf > pdf:
-                    pdf = estimator_pdf
-                    sample[-1] = class_
+        X = self.selected_sample[:-1]
+        pdf = 0
+        for class_ in self.classes:
+            estimator = self.estimators[self.current_concept.name][class_]
+            estimator_pdf = estimator.pdf(X)
+            if estimator_pdf > pdf:
+                pdf = estimator_pdf
+                self.selected_sample[-1] = class_
+        self.all_selected_samples.append(self.selected_sample)
 
     def add_samples_to_concept(self):
         logger.debug("Adding samples to current concept...")
 
-        self.current_concept.add_samples(self.selected_samples)
+        self.current_concept.add_samples([self.selected_sample])
 
     @abstractmethod
     def run(self):

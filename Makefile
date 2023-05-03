@@ -31,7 +31,7 @@ lint:
 	make isort
 	make format
 	poetry run pylint  --extension-pkg-whitelist='pydantic' master_thesis_experiments
-	poetry run flake8 ml3_platform_experiments
+	poetry run flake8 master_thesis_experiments
 	poetry run mypy --ignore-missing-imports --install-types --non-interactive --package master_thesis_experiments
 
 test:
