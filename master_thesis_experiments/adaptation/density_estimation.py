@@ -13,7 +13,7 @@ class DensityEstimator(object):
     Density estimator abstract class.
     """
 
-    def __init__(self, concept_id: str = ''):
+    def __init__(self, concept_id: str = ""):
         super().__init__()
         self.dataset = None
         self.concept_id = concept_id
@@ -42,7 +42,7 @@ class ClairvoyantNormalEstimator(DensityEstimator):
             self,
             mean: Optional[np.ndarray] = None,
             cov: Optional[np.ndarray] = None,
-            concept_id: str = '',
+            concept_id: str = "",
     ):
         super().__init__(concept_id)
         self.mean = mean
@@ -60,7 +60,9 @@ class ClairvoyantNormalEstimator(DensityEstimator):
             self.cov = np.eye(dim)
 
     def pdf(self, X: np.ndarray) -> np.ndarray:
-        return multivariate_normal.pdf(X, mean=self.mean, cov=self.cov, allow_singular=True)
+        return multivariate_normal.pdf(
+            X, mean=self.mean, cov=self.cov, allow_singular=True
+        )
 
 
 class MultivariateNormalEstimator(ClairvoyantNormalEstimator):
@@ -69,7 +71,7 @@ class MultivariateNormalEstimator(ClairvoyantNormalEstimator):
     estimation.
     """
 
-    def __init__(self, concept_id: str = ''):
+    def __init__(self, concept_id: str = ""):
         super().__init__(concept_id=concept_id)
         self.oas = OAS()
         self.mean = None
@@ -91,7 +93,7 @@ class KernelDensityEstimator(DensityEstimator):
     A kernel density estimator wrapping the scikit-learn implementation.
     """
 
-    def __init__(self, concept_id: str = ''):
+    def __init__(self, concept_id: str = ""):
         super().__init__(concept_id)
         self.kernel_density = KernelDensity()
 
@@ -112,9 +114,9 @@ class GaussianMixtureEstimator(DensityEstimator):
     scikit-learn implementation.
     """
 
-    def __init__(self, concept_id: str = ''):
+    def __init__(self, concept_id: str = ""):
         super().__init__(concept_id)
-        self.density = GaussianMixture(n_components=5, covariance_type='full')
+        self.density = GaussianMixture(n_components=5, covariance_type="full")
 
     def fit(self, dataset):
         super().fit(dataset)
@@ -132,7 +134,7 @@ class MultipleEstimator(DensityEstimator):
     output class is used
     """
 
-    def __init__(self, concept_id: str = ''):
+    def __init__(self, concept_id: str = ""):
         super().__init__(concept_id)
 
         self.classes = np.array([])
@@ -147,9 +149,7 @@ class MultipleEstimator(DensityEstimator):
         # fit an estimator
         for output_class in self.classes:
             # filter data on output class
-            filtered_data = [
-                data for data in dataset if data[-1] == output_class
-            ]
+            filtered_data = [data for data in dataset if data[-1] == output_class]
 
             # if there are some samples
             if len(filtered_data) >= 2:  # hard-coded for now
@@ -172,7 +172,6 @@ class MultipleEstimator(DensityEstimator):
             # NOTE: assuming balanced classes for now
             result = np.append(
                 result,
-                self.estimators[sample[-1]].pdf(np.array([sample]))
-                / len(self.classes),
+                self.estimators[sample[-1]].pdf(np.array([sample])) / len(self.classes),
             )
         return result

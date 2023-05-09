@@ -62,9 +62,7 @@ class DataProvider:
                 ignore_index=True,
             )
         else:
-            return pd.concat(
-                self.generated_dataset, ignore_index=True
-            )
+            return pd.concat(self.generated_dataset, ignore_index=True)
 
     def get_data_from_ids(self, ids):
         """
@@ -74,7 +72,7 @@ class DataProvider:
         try:
             return df.loc[ids]
         except IndexError:
-            print(f'Got indexes {ids} while dataset has indexes {df.index}')
+            print(f"Got indexes {ids} while dataset has indexes {df.index}")
 
     def add_samples(self, samples_list):
         df = pd.DataFrame(samples_list, columns=self.generated_dataset.columns)

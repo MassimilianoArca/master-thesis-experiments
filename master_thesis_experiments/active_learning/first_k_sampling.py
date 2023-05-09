@@ -1,22 +1,28 @@
 import numpy as np
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
-from master_thesis_experiments.adaptation.density_estimation import MultivariateNormalEstimator, DensityEstimator
+from master_thesis_experiments.adaptation.density_estimation import (
+    DensityEstimator,
+    MultivariateNormalEstimator,
+)
+
 # from master_thesis_experiments.main.synth_classification_simulation import SynthClassificationSimulation
-from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import logger, \
-    SynthClassificationGenerator
+from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import (
+    SynthClassificationGenerator,
+    logger,
+)
 
 
 class FirstKSamplingStrategy(BaseStrategy):
-
-    def __init__(self, concept_mapping, concept_list, n_samples, estimator_type: DensityEstimator()):
-        super().__init__(
-            concept_mapping,
-            concept_list,
-            n_samples,
-            estimator_type
-        )
-        self.name = 'FirstKSampling'
+    def __init__(
+        self,
+        concept_mapping,
+        concept_list,
+        n_samples,
+        estimator_type: DensityEstimator(),
+    ):
+        super().__init__(concept_mapping, concept_list, n_samples, estimator_type)
+        self.name = "FirstKSampling"
 
     def select_samples(self):
         # k is the number of samples per concept to be selected
@@ -45,6 +51,3 @@ class FirstKSamplingStrategy(BaseStrategy):
         new_concepts_list[-1] = self.current_concept
 
         return new_concepts_list
-
-
-

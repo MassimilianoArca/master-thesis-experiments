@@ -8,22 +8,24 @@ logger = get_logger(__file__)
 
 
 class RandomSamplingStrategy(BaseStrategy):
+    def __init__(
+        self,
+        concept_mapping,
+        concept_list,
+        n_samples,
+        estimator_type: DensityEstimator(),
+    ):
+        super().__init__(concept_mapping, concept_list, n_samples, estimator_type)
+        self.name = "RandomSampling"
 
-    def __init__(self, concept_mapping, concept_list, n_samples, estimator_type: DensityEstimator()):
-        super().__init__(
-            concept_mapping,
-            concept_list,
-            n_samples,
-            estimator_type
-        )
-        self.name = 'RandomSampling'
 
     def initialize(self):
         if self.past_dataset is None:
             super().initialize()
 
     def select_samples(self):
-        logger.debug("Selecting sample...")
+        self.iteration += 1
+        logger.debug(f"Selecting sample #{self.iteration}...")
 
         past_dataset = self.past_dataset.get_dataset()
 
@@ -32,6 +34,7 @@ class RandomSamplingStrategy(BaseStrategy):
         selected_sample = self.past_dataset.get_data_from_ids(random_index)
         self.past_dataset.delete_sample(random_index)
         self.selected_sample = selected_sample.to_numpy().ravel()
+        self.all_selected_samples.append(self.selected_sample.tolist())
 
     def run(self):
         logger.debug("Running Random Sampling Strategy...")

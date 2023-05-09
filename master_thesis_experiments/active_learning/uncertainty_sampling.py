@@ -1,30 +1,35 @@
+import math
+from itertools import product
 
 import numpy as np
 import pandas as pd
-import math
-
-from master_thesis_experiments.active_learning.base import BaseStrategy
-from master_thesis_experiments.adaptation.density_estimation import MultivariateNormalEstimator, DensityEstimator
 from sklearn.linear_model import LogisticRegression
-
-from master_thesis_experiments.main.synth_classification_simulation import SynthClassificationSimulation
-from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import \
-    SynthClassificationGenerator, logger
-
-from itertools import product
 from sklearn.metrics import jaccard_score
 from sklearn.metrics.pairwise import pairwise_distances
 
+from master_thesis_experiments.active_learning.base import BaseStrategy
+from master_thesis_experiments.adaptation.density_estimation import (
+    DensityEstimator,
+    MultivariateNormalEstimator,
+)
+from master_thesis_experiments.main.synth_classification_simulation import (
+    SynthClassificationSimulation,
+)
+from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import (
+    SynthClassificationGenerator,
+    logger,
+)
+
 
 class UncertaintySamplingStrategy(BaseStrategy):
-
-    def __init__(self, concept_mapping, concept_list, n_samples, estimator_type: DensityEstimator()):
-        super().__init__(
-            concept_mapping,
-            concept_list,
-            n_samples,
-            estimator_type
-        )
+    def __init__(
+        self,
+        concept_mapping,
+        concept_list,
+        n_samples,
+        estimator_type: DensityEstimator(),
+    ):
+        super().__init__(concept_mapping, concept_list, n_samples, estimator_type)
 
         self.classifiers = {}
         self.label_per_concept = None
@@ -57,7 +62,7 @@ class UncertaintySamplingStrategy(BaseStrategy):
             dataset = pd.concat([dataset, data], axis=0)
 
             X, y = concept.get_split_dataset()
-            classifier = LogisticRegression(multi_class='multinomial', solver='lbfgs')
+            classifier = LogisticRegression(multi_class="multinomial", solver="lbfgs")
             classifier.fit(X, y)
             self.classifiers[concept.name] = classifier
 
@@ -71,7 +76,9 @@ class UncertaintySamplingStrategy(BaseStrategy):
 
             for index in range(len(X)):
                 sample = [X[index]]
-                for classifier_index, classifier in enumerate(self.classifiers.values()):
+                for classifier_index, classifier in enumerate(
+                    self.classifiers.values()
+                ):
                     prediction = classifier.predict(sample)
                     self.label_per_concept[global_index][classifier_index] = prediction
 
@@ -86,7 +93,7 @@ class UncertaintySamplingStrategy(BaseStrategy):
         column = 0
         global_index = 0
         for prod in tot_products:
-            score = jaccard_score(prod[0], prod[1], average='micro')
+            score = jaccard_score(prod[0], prod[1], average="micro")
             if global_index >= self.n_past_samples:
                 global_index = 0
                 column = 0
@@ -102,7 +109,7 @@ class UncertaintySamplingStrategy(BaseStrategy):
 
         X, _ = self.past_dataset.get_split_dataset()
 
-        mahalanobis_distance = pairwise_distances(X=X, metric='mahalanobis')
+        mahalanobis_distance = pairwise_distances(X=X, metric="mahalanobis")
         inv_distance = 1 / mahalanobis_distance
         np.fill_diagonal(inv_distance, 0)
         sum_inv_distance = np.sum(inv_distance, axis=1)
@@ -131,7 +138,9 @@ class UncertaintySamplingStrategy(BaseStrategy):
 
                 total_count = np.sum(class_counter)
                 probabilities = [count / total_count for count in class_counter]
-                self.samples_uncertainty[global_index] = -sum((p * math.log2(p) if p > 0 else 0) for p in probabilities)
+                self.samples_uncertainty[global_index] = -sum(
+                    (p * math.log2(p) if p > 0 else 0) for p in probabilities
+                )
                 global_index += 1
         self.samples_uncertainty = pd.DataFrame(self.samples_uncertainty)
 
@@ -147,15 +156,25 @@ class UncertaintySamplingStrategy(BaseStrategy):
         # self.correlation_matrix.drop(selected_sample_index, axis=1, inplace=True)
         n_samples -= 1
 
-        sample = self.past_dataset.get_data_from_ids(selected_sample_index).to_numpy().ravel()
+        sample = (
+            self.past_dataset.get_data_from_ids(selected_sample_index)
+            .to_numpy()
+            .ravel()
+        )
         self.selected_samples.append(sample)
 
         while n_samples > 0:
-            self.samples_uncertainty = self.samples_uncertainty.mul(self.correlation_matrix)
+            self.samples_uncertainty = self.samples_uncertainty.mul(
+                self.correlation_matrix
+            )
 
             # self.samples_uncertainty = self.samples_uncertainty.T
             selected_sample_index = self.samples_uncertainty[0].idxmax()
-            sample = self.past_dataset.get_data_from_ids(selected_sample_index).to_numpy().ravel()
+            sample = (
+                self.past_dataset.get_data_from_ids(selected_sample_index)
+                .to_numpy()
+                .ravel()
+            )
             self.selected_samples.append(sample)
 
             self.samples_uncertainty.drop(selected_sample_index, inplace=True)
@@ -181,14 +200,14 @@ class UncertaintySamplingStrategy(BaseStrategy):
         return new_concepts_list
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     simulation = SynthClassificationSimulation(
-        name='synth_classification',
+        name="synth_classification",
         generator=SynthClassificationGenerator(4, 1, 3),
         strategies=[],
-        results_dir='',
+        results_dir="",
         n_samples=10,
-        estimator_type=MultivariateNormalEstimator
+        estimator_type=MultivariateNormalEstimator,
     )
 
     simulation.generate_dataset(10, 60, 50)
@@ -197,7 +216,7 @@ if __name__ == '__main__':
         concept_mapping=simulation.concept_mapping,
         concept_list=simulation.concepts,
         n_samples=simulation.n_samples,
-        estimator_type=simulation.estimator_type
+        estimator_type=simulation.estimator_type,
     )
     sampler.initialize()
     sampler.compute_representativeness_matrix()

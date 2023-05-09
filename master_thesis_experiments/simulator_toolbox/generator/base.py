@@ -16,5 +16,3 @@ class Generator:
         base method to define a common interface
         """
         raise NotImplementedError
-
-

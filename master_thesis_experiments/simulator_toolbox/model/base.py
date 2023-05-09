@@ -12,13 +12,13 @@ class Model:
     """
 
     def __init__(
-            self,
-            name,
-            ml_model,
-            training_data=None,
-            supports_sample_weights=True,
-            version=1,
-            is_trained=False,
+        self,
+        name,
+        ml_model,
+        training_data=None,
+        supports_sample_weights=True,
+        version=1,
+        is_trained=False,
     ):
         self.name = name
         self.ml_model = deepcopy(ml_model)

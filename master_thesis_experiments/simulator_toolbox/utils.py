@@ -11,9 +11,7 @@ from scipy.stats import multivariate_normal
 # === LOGGER SETTINGS ===
 LOG_FORMAT = "[%(levelname)s] [%(name)s] [%(asctime)s] %(message)s"
 
-logging.basicConfig(
-    format=LOG_FORMAT, datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO
-)
+logging.basicConfig(format=LOG_FORMAT, datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
 
 
 def get_logger(file_name: str) -> logging.Logger:
@@ -54,9 +52,9 @@ def load_generated_data(path: str):
     load data expecting generator format
     """
     dataframe = pd.read_csv(path)
-    input_columns = [col for col in dataframe if col.startswith('X')]
+    input_columns = [col for col in dataframe if col.startswith("X")]
     X = dataframe[input_columns]
-    output_columns = [col for col in dataframe if col.startswith('y_')]
+    output_columns = [col for col in dataframe if col.startswith("y_")]
     y = dataframe[output_columns]
     return X, y
 
@@ -65,11 +63,11 @@ def split_scored_data(dataframe):
     """
     load input prediction gt and error
     """
-    input_columns = [col for col in dataframe if col.startswith('X')]
+    input_columns = [col for col in dataframe if col.startswith("X")]
     X = dataframe[input_columns]
-    output_columns = [col for col in dataframe if col.startswith('y_')]
+    output_columns = [col for col in dataframe if col.startswith("y_")]
     y = dataframe[output_columns]
-    error_columns = [col for col in dataframe if col.startswith('error')]
+    error_columns = [col for col in dataframe if col.startswith("error")]
     error = dataframe[error_columns]
     return X, y, error
 
@@ -90,7 +88,7 @@ def save_df_to_csv(dataframe, path):
     """
     Dataframe.to_csv() extended with make dir
     """
-    slashes_pos = [pos for pos, char in enumerate(path) if char == '/']
+    slashes_pos = [pos for pos, char in enumerate(path) if char == "/"]
     if not os.path.exists(path[: slashes_pos[-1]]):
         os.makedirs(path[: slashes_pos[-1]])
     dataframe.to_csv(path)
@@ -104,9 +102,7 @@ def split_dataframe(dataframe, chunk_size=100):
     chunks = []
     num_chunks = len(dataframe) // chunk_size + 1
     for i in range(num_chunks):
-        chunks.append(
-            dataframe[(i * chunk_size) : (i + 1) * chunk_size]  # noqa: E203
-        )
+        chunks.append(dataframe[(i * chunk_size) : (i + 1) * chunk_size])  # noqa: E203
     return chunks
 
 
@@ -116,10 +112,10 @@ def get_root_level_dir(dir_name):
     """
     dir_path = os.path.dirname(__file__)
     # go up one level to reach project root folder
-    slashes_pos = [pos for pos, char in enumerate(dir_path) if char == '/']
+    slashes_pos = [pos for pos, char in enumerate(dir_path) if char == "/"]
     root_level_path = dir_path[: slashes_pos[-1]]
 
-    datasets_dir = root_level_path + '/' + dir_name
+    datasets_dir = root_level_path + "/" + dir_name
     return datasets_dir
 
 
@@ -172,9 +168,9 @@ def is_pd(B):
 
 
 def split_dataframe_xy(dataframe):
-    input_columns = [col for col in dataframe if col.startswith('X')]
+    input_columns = [col for col in dataframe if col.startswith("X")]
     X = dataframe[input_columns]
-    output_columns = [col for col in dataframe if col.startswith('y_')]
+    output_columns = [col for col in dataframe if col.startswith("y_")]
     y = dataframe[output_columns]
     return X.values, y.values.flatten()
 

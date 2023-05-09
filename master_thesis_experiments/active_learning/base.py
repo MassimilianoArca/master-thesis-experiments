@@ -11,8 +11,13 @@ logger = get_logger(__file__)
 
 
 class BaseStrategy:
-
-    def __init__(self, concept_mapping, concept_list, n_samples, estimator_type: DensityEstimator()):
+    def __init__(
+        self,
+        concept_mapping,
+        concept_list,
+        n_samples,
+        estimator_type: DensityEstimator(),
+    ):
         self.concept_mapping = concept_mapping
         self.concept_list = concept_list
         self.n_samples = n_samples
@@ -26,16 +31,16 @@ class BaseStrategy:
         self.classes = []
         self.past_dataset = None
         self.enriched_concept = None
-        self.name = ''
+        self.name = ""
+        self.iteration = 0
 
     def initialize(self):
-
         dataset = pd.DataFrame()
         for concept in self.past_concepts:
             data = concept.get_dataset()
             dataset = pd.concat([dataset, data], axis=0, ignore_index=True)
 
-        self.past_dataset = DataProvider('past_dataset', dataset)
+        self.past_dataset = DataProvider("past_dataset", dataset)
         output_column = dataset.columns[-1]
         self.classes = np.unique(dataset[output_column]).astype(int)
 
@@ -51,9 +56,7 @@ class BaseStrategy:
             estimator = self.estimator_type(self.current_concept.name)
             filter_dataset = dataset.loc[dataset[output_column] == class_]
             filter_dataset = filter_dataset.iloc[:, :-1]
-            estimator.fit(
-                filter_dataset.to_numpy()
-            )
+            estimator.fit(filter_dataset.to_numpy())
 
             self.estimators[self.current_concept.name][class_] = estimator
 
@@ -70,12 +73,11 @@ class BaseStrategy:
         X = self.selected_sample[:-1]
         pdf = 0
         for class_ in self.classes:
-            estimator = self.estimators[self.current_concept.name][class_]
+            estimator = self.concept_mapping[self.current_concept.name]['class_' + str(class_)]
             estimator_pdf = estimator.pdf(X)
             if estimator_pdf > pdf:
                 pdf = estimator_pdf
                 self.selected_sample[-1] = class_
-        self.all_selected_samples.append(self.selected_sample)
 
     def add_samples_to_concept(self):
         logger.debug("Adding samples to current concept...")

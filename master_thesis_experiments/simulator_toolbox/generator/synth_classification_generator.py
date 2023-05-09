@@ -26,14 +26,12 @@ class SynthClassificationGenerator(Generator):
     def __init__(self, n_features, n_outputs, n_classes):
         super().__init__(
             generator_type=GeneratorType.SYNTH,
-            name='interchanging_rbf_generator',
+            name="interchanging_rbf_generator",
         )
 
         self.size = n_features
         self.n_classes = n_classes
-        self.columns_names = compute_default_columns_names(
-            n_features, n_outputs
-        )
+        self.columns_names = compute_default_columns_names(n_features, n_outputs)
 
         self.mean_values = []
         self._cov_values = []
@@ -61,9 +59,7 @@ class SynthClassificationGenerator(Generator):
         self._cov_values = value
 
         for i, init_values in enumerate(self._cov_values):
-            triangular_matrix = generate_triangular_matrix(
-                init_values, self.size
-            )
+            triangular_matrix = generate_triangular_matrix(init_values, self.size)
 
             self.covariance_matrices[i] = nearest_pd(triangular_matrix)
 
@@ -79,17 +75,15 @@ class SynthClassificationGenerator(Generator):
         data = []
         random_vars = []
 
-        for mean, covariance_matrix in zip(
-                self.mean_values, self.covariance_matrices
-        ):
-            random_var = multivariate_normal(
-                mean=mean, cov=covariance_matrix
-            )
+        for mean, covariance_matrix in zip(self.mean_values, self.covariance_matrices):
+            random_var = multivariate_normal(mean=mean, cov=covariance_matrix)
 
             random_vars.append(random_var)
 
         for _ in range(n_samples):
-            selected = np.random.choice(range(len(self.prior_probs)), p=self.prior_probs)
+            selected = np.random.choice(
+                range(len(self.prior_probs)), p=self.prior_probs
+            )
 
             # generate row for the class label 'selected', which is a
             # float randomly selected in [0, len(random_vars) - 1]
@@ -106,7 +100,6 @@ class SynthClassificationGenerator(Generator):
         return deepcopy(batch_df)
 
     def reset(self):
-
         self.mean_values = np.zeros(self.size)
         self._cov_values = []
         self.covariance_matrices = np.zeros((self.n_classes, self.size, self.size))
@@ -117,9 +110,7 @@ class SynthClassificationGenerator(Generator):
         function to apply noise to mean and cov
         """
         mean_noise = np.random.uniform(-0.1, 0.1, self.size)
-        cov_noise = np.random.uniform(-0.5,
-                                      0.5,
-                                      self.size * self.size)
+        cov_noise = np.random.uniform(-0.5, 0.5, self.size * self.size)
         cov_noise = cov_noise.reshape([self.size, self.size])
 
         self.mean_values += mean_noise
@@ -143,5 +134,5 @@ class SynthClassificationGenerator(Generator):
         # rotation_matrix = np.array([[c, -s], [s, c]])
 
         self.covariance_matrices[matrix_index] = (
-                rotation_matrix @ self.covariance_matrices[matrix_index] @ rotation_matrix.T
+            rotation_matrix @ self.covariance_matrices[matrix_index] @ rotation_matrix.T
         )

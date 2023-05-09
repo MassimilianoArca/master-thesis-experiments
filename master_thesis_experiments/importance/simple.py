@@ -5,20 +5,22 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 
-from master_thesis_experiments.adaptation.density_estimation import DensityEstimator, MultivariateNormalEstimator
+from master_thesis_experiments.adaptation.density_estimation import (
+    DensityEstimator,
+    MultivariateNormalEstimator,
+)
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
 logger = get_logger(__name__)
 
 
 class IWHandler:
-
     def __init__(
-            self,
-            concept_mapping,
-            concept_list,
-            estimator_type: DensityEstimator(),
-            prior_class_probabilities: List = None
+        self,
+        concept_mapping,
+        concept_list,
+        estimator_type: DensityEstimator(),
+        prior_class_probabilities: List = None,
     ):
         self.concept_mapping = concept_mapping
         self._concept_list = concept_list
@@ -59,9 +61,8 @@ class IWHandler:
                 self.prior_class_probabilities.append(prior_class_probabilities)
 
     def compute_prior_probabilities(self):
-
         if self.prior_class_probabilities is None:
-            logger.debug('Computing prior class probabilities...')
+            logger.debug("Computing prior class probabilities...")
 
             self.prior_class_probabilities = []
             for concept in self._concept_list:
@@ -69,14 +70,18 @@ class IWHandler:
                 prior_class_probabilities = np.zeros(shape=(len(self.classes)))
                 for class_ in self.classes:
                     prior_class_probabilities[class_] = (
-                            dataset['y_0'].value_counts()[class_] / dataset.shape[0]
+                        dataset["y_0"].value_counts()[class_] / dataset.shape[0]
                     )
                 self.prior_class_probabilities.append(prior_class_probabilities)
 
     def compute_past_concepts_probabilities(self):
+        """
+        Since we compute the IW for each concept as p(x,y) / q(x,y), where q
+        is the pdf of the past concept and p is the pdf of the current concept,
+        we compute q(x,y) for each past concept
 
+        """
         if not self.joints_probabilities:
-
             for concept_index, concept in enumerate(self.past_concepts):
                 X, y = concept.get_split_dataset()
                 shape = (X.shape[0],)
@@ -85,16 +90,24 @@ class IWHandler:
                 for index in range(len(X)):
                     sample = X[index]
                     label = y[index].astype(int)
-                    class_estimator = self.concept_mapping[concept.name]['class_' + str(label)]
+                    class_estimator = self.concept_mapping[concept.name][
+                        "class_" + str(label)
+                    ]
 
                     concept_joints[index] = (
-                            class_estimator.pdf(sample)
-                            * self.prior_class_probabilities[concept_index][label]
+                        class_estimator.pdf(sample)
+                        * self.prior_class_probabilities[concept_index][label]
                     )
                 concept_joints = pd.DataFrame(concept_joints)
                 self.joints_probabilities.append(concept_joints)
 
     def compute_current_concept_probabilities(self):
+        """
+        Since we compute the IW for each concept as p(x,y) / q(x,y), where q
+        is the pdf of the past concept and p is the pdf of the current concept,
+        we compute p(x,y) for each past concept
+
+        """
         last_concept_name = self._concept_list[-1].name
         for concept_index, concept in enumerate(self.past_concepts):
             X, y = concept.get_split_dataset()
@@ -104,32 +117,34 @@ class IWHandler:
             for index in range(len(X)):
                 sample = X[index]
                 label = y[index].astype(int)
-                class_estimator = self.concept_mapping[last_concept_name]['class_' + str(label)]
+                class_estimator = self.concept_mapping[last_concept_name][
+                    "class_" + str(label)
+                ]
 
                 concept_joints[index] = (
-                        class_estimator.pdf(sample)
-                        * self.prior_class_probabilities[-1][label]
+                    class_estimator.pdf(sample)
+                    * self.prior_class_probabilities[-1][label]
                 )
             concept_joints = pd.DataFrame(concept_joints)
             self.current_concept_joints_probabilities.append(concept_joints)
 
     def estimate_current_concept(self):
         X, y = self.current_concept.get_split_dataset()
-        conditional_probability_estimator = GaussianNB(
-            priors=self.prior_class_probabilities[-1]
+        conditional_probability_estimator = LogisticRegression(
+            multi_class='multinomial'
         )
         conditional_probability_estimator.fit(X, y)
         if self.input_distribution_estimator is None:
-            input_distribution_estimator = self.estimator_type(concept_id=self.current_concept.name)
+            input_distribution_estimator = self.estimator_type(
+                concept_id=self.current_concept.name
+            )
             input_distribution_estimator.fit(X)
             self.input_distribution_estimator = input_distribution_estimator
 
         return conditional_probability_estimator
 
     def compute_numerators(
-            self,
-            conditional_probability_estimator,
-            input_distribution_estimator
+        self, conditional_probability_estimator, input_distribution_estimator
     ):
         for concept in self.past_concepts:
             X, y = concept.get_split_dataset()
@@ -139,7 +154,9 @@ class IWHandler:
             for index in range(len(X)):
                 sample = X[index]
                 label = y[index].astype(int)
-                conditional_probs = conditional_probability_estimator.predict_proba(sample.reshape(1, -1))
+                conditional_probs = conditional_probability_estimator.predict_proba(
+                    sample.reshape(1, -1)
+                )
                 conditional_probs = conditional_probs.flatten()
                 prob = conditional_probs[label]
                 numerators[index] = prob * input_distribution_estimator.pdf(sample)
@@ -148,7 +165,6 @@ class IWHandler:
             self.concepts_numerators.append(numerators)
 
     def compute_weights(self):
-
         for concept_index in range(len(self.past_concepts)):
             numerators = self.concepts_numerators[concept_index]
             denominators = self.joints_probabilities[concept_index]
@@ -158,7 +174,6 @@ class IWHandler:
         return self.weights_per_concept
 
     def compute_true_weights(self):
-
         for concept_index in range(len(self.past_concepts)):
             numerators = self.current_concept_joints_probabilities[concept_index]
             denominators = self.joints_probabilities[concept_index]
@@ -175,7 +190,9 @@ class IWHandler:
 
         weights_list = self.compute_true_weights()
 
-        current_concept_weights = np.ones(shape=self.current_concept.get_dataset().shape[0])
+        current_concept_weights = np.ones(
+            shape=self.current_concept.get_dataset().shape[0]
+        )
         current_concept_weights = pd.DataFrame(current_concept_weights)
         weights_list.append(current_concept_weights)
 
@@ -188,7 +205,6 @@ class IWHandler:
         return imp_weights.flatten()
 
     def run_weights(self):
-
         self.initialize()
         self.compute_prior_probabilities()
         self.compute_past_concepts_probabilities()
@@ -197,12 +213,14 @@ class IWHandler:
 
         self.compute_numerators(
             conditional_probability_estimator=conditional_probability_estimator,
-            input_distribution_estimator=self.input_distribution_estimator
+            input_distribution_estimator=self.input_distribution_estimator,
         )
 
         weights_list = self.compute_weights()
 
-        current_concept_weights = np.ones(shape=self.current_concept.get_dataset().shape[0])
+        current_concept_weights = np.ones(
+            shape=self.current_concept.get_dataset().shape[0]
+        )
         current_concept_weights = pd.DataFrame(current_concept_weights)
         weights_list.append(current_concept_weights)
 
@@ -216,4 +234,3 @@ class IWHandler:
     def soft_reset(self):
         self.concepts_numerators = []
         self.weights_per_concept = []
-
