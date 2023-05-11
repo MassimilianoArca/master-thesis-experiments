@@ -129,6 +129,7 @@ class IWHandler:
             self.current_concept_joints_probabilities.append(concept_joints)
 
     def estimate_current_concept(self):
+        # cambiare in p(x|y)
         X, y = self.current_concept.get_split_dataset()
         conditional_probability_estimator = LogisticRegression(
             multi_class='multinomial'

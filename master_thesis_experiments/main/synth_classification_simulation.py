@@ -84,7 +84,8 @@ class SynthClassificationSimulation(Simulation):
         self.generator.mean_values = self.mean_values
         self.generator.cov_values = self.cov_values
 
-        alpha = 2
+        alpha = 3
+
         # the higher the alpha, the more balanced the prior probabilities
         self.generator.prior_probs = np.random.dirichlet(
             alpha * np.ones(self.generator.n_classes)
