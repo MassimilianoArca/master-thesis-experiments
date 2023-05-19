@@ -39,10 +39,10 @@ class ClairvoyantNormalEstimator(DensityEstimator):
     """
 
     def __init__(
-            self,
-            mean: Optional[np.ndarray] = None,
-            cov: Optional[np.ndarray] = None,
-            concept_id: str = "",
+        self,
+        mean: Optional[np.ndarray] = None,
+        cov: Optional[np.ndarray] = None,
+        concept_id: str = "",
     ):
         super().__init__(concept_id)
         self.mean = mean
@@ -78,14 +78,10 @@ class MultivariateNormalEstimator(ClairvoyantNormalEstimator):
         self.cov = None
 
     def fit(self, dataset: np.ndarray):
-        # super().fit(dataset)
         self.oas.fit(dataset)
 
-        if self.mean is None:
-            self.mean = self.oas.location_
-
-        if self.cov is None:
-            self.cov = self.oas.covariance_
+        self.mean = self.oas.location_
+        self.cov = self.oas.covariance_
 
 
 class KernelDensityEstimator(DensityEstimator):

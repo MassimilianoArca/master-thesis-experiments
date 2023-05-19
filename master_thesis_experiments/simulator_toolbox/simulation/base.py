@@ -41,6 +41,16 @@ class Simulation:
         self.true_weights = []
         self.pre_AL_weights = []
 
+        self.test_set = None
+
+        self.true_p_y_given_x = pd.DataFrame()
+        self.true_p_x = pd.DataFrame()
+
+        self.pre_AL_p_y_given_x = pd.DataFrame()
+        self.p_x = pd.DataFrame()
+
+        self.p_y_given_x = {}
+
     def run(self):
         raise NotImplementedError
 
@@ -68,6 +78,53 @@ class Simulation:
             concept_path = concepts_path / str(concept.name + ".csv")
             concept.generated_dataset.to_csv(concept_path, index=False)
 
+        true_p_y_given_x_path = Path(
+            self.simulation_results_dir
+            + "/"
+            + str(experiment_index)
+            + "/true_conditional.csv"
+        )
+        self.true_p_y_given_x.to_csv(true_p_y_given_x_path, index=False)
+
+        true_p_x_path = Path(
+            self.simulation_results_dir
+            + "/"
+            + str(experiment_index)
+            + "/true_input.csv"
+        )
+        self.true_p_x.to_csv(true_p_x_path, index=False)
+
+        pre_AL_p_y_given_x_path = Path(
+            self.simulation_results_dir
+            + "/"
+            + str(experiment_index)
+            + "/pre_AL_conditional.csv"
+        )
+        self.pre_AL_p_y_given_x.to_csv(pre_AL_p_y_given_x_path, index=False)
+
+        p_x_path = Path(
+            self.simulation_results_dir
+            + "/"
+            + str(experiment_index)
+            + "/estimated_input.csv"
+        )
+        self.p_x.to_csv(p_x_path, index=False)
+
+        for key, item in self.p_y_given_x.items():
+            p_y_given_x_path = Path(
+                self.simulation_results_dir
+                + "/"
+                + str(experiment_index)
+                + "/"
+                + str(key[0])
+                + "/"
+                + str(str(key[1]) + "_samples" + ".csv")
+            )
+            p_y_given_x_path.parent.mkdir(parents=True, exist_ok=True)
+
+            item.to_csv(p_y_given_x_path, index=False)
+
+        """
         # Save weights
 
         self.true_weights = self.true_weights[: self.metadata["past_dataset_size"]]
@@ -109,6 +166,7 @@ class Simulation:
             ]
             with open(post_AL_weights_path, "w") as fp:
                 json.dump(self.strategy_post_AL_weights[key], fp)
+            """
 
         columns = self.concepts[0].generated_dataset.columns
         for strategy_name, samples in self.selected_samples_per_strategy.items():
@@ -121,7 +179,9 @@ class Simulation:
                 + "/"
                 + "selected_samples.csv"
             )
-            pd.DataFrame(samples, columns=columns).to_csv(selected_samples_path, index=False)
+            pd.DataFrame(samples, columns=columns).to_csv(
+                selected_samples_path, index=False
+            )
 
         # save generation metadata
         metadata_file = (
@@ -142,3 +202,13 @@ class Simulation:
         self.strategy_post_AL_weights = {}
         self.true_weights = []
         self.pre_AL_weights = []
+
+        self.test_set = None
+
+        self.true_p_y_given_x = pd.DataFrame()
+        self.true_p_x = pd.DataFrame()
+
+        self.pre_AL_p_y_given_x = pd.DataFrame()
+        self.p_x = pd.DataFrame()
+
+        self.p_y_given_x = {}

@@ -73,7 +73,9 @@ class BaseStrategy:
         X = self.selected_sample[:-1]
         pdf = 0
         for class_ in self.classes:
-            estimator = self.concept_mapping[self.current_concept.name]['class_' + str(class_)]
+            estimator = self.concept_mapping[self.current_concept.name][
+                "class_" + str(class_)
+            ]
             estimator_pdf = estimator.pdf(X)
             if estimator_pdf > pdf:
                 pdf = estimator_pdf

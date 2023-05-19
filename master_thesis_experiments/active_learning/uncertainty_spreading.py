@@ -80,7 +80,7 @@ class UncertaintySpreadingStrategy(BaseStrategy):
             dataset = pd.concat([dataset, data], axis=0)
 
             X, y = concept.get_split_dataset()
-            classifier = LogisticRegression(multi_class='multinomial')
+            classifier = LogisticRegression(multi_class="multinomial")
             classifier.fit(X, y)
             self.classifiers[concept.name] = classifier
 
@@ -173,13 +173,15 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         )
 
     def select_samples(self):
-        logger.debug("Selecting sample...")
+        self.iteration += 1
+        logger.debug(f"Selecting sample #{self.iteration}...")
 
         self.compute_new_samples_uncertainty()
         self.compute_past_samples_uncertainty()
         self.compute_input_similarities()
         self.compute_target_similarities()
 
+        """
         joint_past_samples_similarities = (
             self.past_samples_input_similarity * self.past_samples_target_similarity
         )
@@ -192,6 +194,20 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         ) * self.past_samples_uncertainty
 
         uncertainty_vector = joint_past_samples_similarities.dot(uncertainty_vector)
+        """
+
+        temporary_matrix = self.new_samples_input_similarity.mul(
+            self.new_samples_uncertainty.to_numpy().flatten(), axis=1
+        )  # MxN @ Nx1 = Mx1
+        temporary_matrix = temporary_matrix.sum(axis=1).to_frame()
+
+        # TODO try different combinations of multiplications
+
+        uncertainty_vector = self.past_samples_uncertainty * temporary_matrix  # Mx1 * Mx1 = Mx1
+
+        uncertainty_vector = self.past_samples_input_similarity.dot(
+            uncertainty_vector
+        )  # MxM @ Mx1 = Mx1
 
         # we have to update the indexes of the uncertainty vector
         # in order to avoid using indexes of already selected samples
@@ -202,7 +218,9 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         index = index.tolist()[0]
         sample = self.past_dataset.get_data_from_ids(index).to_numpy().ravel()
         self.selected_sample = sample
-        # spostarlo alla fine per salvare i sample relabelati e vedere quanti sono poi in evaluation
+
+        # spostarlo alla fine per salvare i sample
+        # relabelati e vedere quanti sono poi in evaluation
         self.all_selected_samples.append(self.selected_sample.tolist())
         self.relabel_samples()
         self.past_dataset.delete_sample(index)

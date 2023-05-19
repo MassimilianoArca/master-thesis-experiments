@@ -132,7 +132,7 @@ class IWHandler:
         # cambiare in p(x|y)
         X, y = self.current_concept.get_split_dataset()
         conditional_probability_estimator = LogisticRegression(
-            multi_class='multinomial'
+            multi_class="multinomial"
         )
         conditional_probability_estimator.fit(X, y)
         if self.input_distribution_estimator is None:

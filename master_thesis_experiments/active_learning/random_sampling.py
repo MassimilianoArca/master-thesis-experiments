@@ -18,7 +18,6 @@ class RandomSamplingStrategy(BaseStrategy):
         super().__init__(concept_mapping, concept_list, n_samples, estimator_type)
         self.name = "RandomSampling"
 
-
     def initialize(self):
         if self.past_dataset is None:
             super().initialize()
