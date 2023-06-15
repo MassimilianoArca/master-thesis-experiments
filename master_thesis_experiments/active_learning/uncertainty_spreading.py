@@ -1,4 +1,5 @@
 import math
+from copy import deepcopy
 
 import numpy as np
 import pandas as pd
@@ -54,10 +55,10 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         )
 
         self.new_samples_input_similarity = np.zeros(
-            shape=(self.n_new_samples, self.n_new_samples)
+            shape=(self.n_new_samples, self.n_past_samples)
         )
         self.new_samples_target_similarity = np.zeros(
-            shape=(self.n_new_samples, self.n_new_samples)
+            shape=(self.n_past_samples, self.n_new_samples)
         )
 
         self.past_samples_uncertainty = np.zeros(shape=(self.n_past_samples,))
@@ -69,6 +70,9 @@ class UncertaintySpreadingStrategy(BaseStrategy):
 
         shape = (self.n_past_samples, n_concepts)
         self.past_samples_prediction_per_classifier = np.ndarray(shape)
+
+        if self.enriched_concept is None:
+            self.enriched_concept = deepcopy(self.current_concept)
 
     def build_past_classifiers(self):
         logger.debug("Building past classifiers...")
@@ -107,6 +111,11 @@ class UncertaintySpreadingStrategy(BaseStrategy):
             ) / n_total_predictions
 
         self.new_samples_uncertainty = pd.DataFrame(self.new_samples_uncertainty)
+
+        # set to 0 the uncertainty of the new added samples,
+        # since they are selected samples from the past
+        new_added_samples_size = self.enriched_concept.n_samples - self.current_concept.n_samples
+        self.new_samples_uncertainty.loc[self.new_samples_uncertainty.tail(new_added_samples_size).index] = 0
 
     def compute_past_samples_uncertainty(self):
         logger.debug("Computing past samples uncertainty...")
@@ -205,9 +214,13 @@ class UncertaintySpreadingStrategy(BaseStrategy):
 
         uncertainty_vector = self.past_samples_uncertainty * temporary_matrix  # Mx1 * Mx1 = Mx1
 
-        uncertainty_vector = self.past_samples_input_similarity.dot(
-            uncertainty_vector
-        )  # MxM @ Mx1 = Mx1
+        n_iterations = 20
+
+        for _ in range(n_iterations):
+
+            uncertainty_vector = self.past_samples_input_similarity.dot(
+                uncertainty_vector
+            )  # MxM @ Mx1 = Mx1
 
         # we have to update the indexes of the uncertainty vector
         # in order to avoid using indexes of already selected samples
@@ -224,7 +237,7 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         self.all_selected_samples.append(self.selected_sample.tolist())
         self.relabel_samples()
         self.past_dataset.delete_sample(index)
-        self.current_concept.add_samples([self.selected_sample.T])
+        self.enriched_concept.add_samples([self.selected_sample.T])
 
     def run(self):
         self.initialize()
@@ -232,5 +245,5 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         self.select_samples()
 
         new_concept_list = self.concept_list
-        new_concept_list[-1] = self.current_concept
+        new_concept_list[-1] = self.enriched_concept
         return new_concept_list

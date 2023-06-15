@@ -39,7 +39,7 @@ logger = get_logger(__name__)
 def generate_mean_values(min_distance, n_features, n_classes):
     mean_values = []
     while len(mean_values) < n_classes:
-        means = np.random.uniform(0, 10, n_features)
+        means = np.random.uniform(0, 15, n_features)
         too_close = False
         for existing_mean in mean_values:
             distance = euclidean_distances([means], [existing_mean])[0][0]
@@ -90,7 +90,7 @@ class SynthClassificationSimulation(Simulation):
         )
 
         self.cov_values = [
-            np.random.uniform(2, 5, triangular_size)
+            np.random.uniform(3, 6, triangular_size)
             for _ in range(self.generator.n_classes)
         ]
 
@@ -146,11 +146,23 @@ class SynthClassificationSimulation(Simulation):
 
             if i != n_concepts - 1:
                 dataset = self.generator.generate(concept_size)
-                # test set will be of the first concept distribution
-                if self.test_set is None:
-                    self.test_set = self.generator.generate(self.test_set_size)
+                generated_classes = dataset['y_0'].unique()
+
+                while len(generated_classes) != self.generator.n_classes:
+                    logger.debug("Regenerating dataset, some class did not generate any sample")
+                    dataset = self.generator.generate(concept_size)
+                    generated_classes = dataset['y_0'].unique()
             else:
                 dataset = self.generator.generate(last_concept_size)
+                generated_classes = dataset['y_0'].unique()
+
+                while len(generated_classes) != self.generator.n_classes:
+                    logger.debug("Regenerating dataset, some class did not generate any sample")
+                    dataset = self.generator.generate(last_concept_size)
+                    generated_classes = dataset['y_0'].unique()
+
+                if self.test_set is None:
+                    self.test_set = self.generator.generate(self.test_set_size)
 
             scaler.fit_transform(dataset)
             self.concepts.append(DataProvider("concept_" + str(i), dataset))
@@ -248,16 +260,16 @@ class SynthClassificationSimulation(Simulation):
 
 
 if __name__ == "__main__":
-    N_EXPERIMENTS = 3
+    N_EXPERIMENTS = 5
 
-    N_SAMPLES = 100
+    N_SAMPLES = 200
 
-    N_FEATURES = 4
+    N_FEATURES = 2
     N_CLASSES = 5
 
     N_CONCEPTS = 5
     CONCEPT_SIZE = 1000
-    LAST_CONCEPT_SIZE = 30
+    LAST_CONCEPT_SIZE = 12
     TEST_SET_SIZE = 300
 
     simulation = SynthClassificationSimulation(

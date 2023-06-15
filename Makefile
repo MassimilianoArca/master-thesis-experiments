@@ -5,14 +5,10 @@ else
 endif
 
 
-version:
-	poetry run python -c "from ml3_repo_manager.version import make_version; make_version()"
-
 setup:
 	$(PYTHON_COMMAND) -m pip install poetry
 	poetry env use $(PYTHON_COMMAND)
 	poetry run pip install --upgrade pip
-	make add-private-pypi
 	cp .hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 	cp .hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 	cp .hooks/post-merge .git/hooks/post-merge && chmod +x .git/hooks/post-merge
@@ -45,11 +41,3 @@ requirements:
 
 minimum-requirements:
 	poetry export --without-hashes --with-credentials -f requirements.txt | grep -e ml3-repo-manager -e pyyaml -e -- > requirements.txt
-
-publish:
-	poetry build
-	poetry publish -r private-pypi
-	rm -rf dist/
-
-class-diagram:
-	poetry run pyreverse -o svg --colorized --module-names y --all-ancestors master_thesis_experiments
