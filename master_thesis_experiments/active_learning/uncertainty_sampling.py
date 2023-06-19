@@ -9,11 +9,16 @@ from sklearn.metrics.pairwise import pairwise_distances
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
 from master_thesis_experiments.adaptation.density_estimation import (
-    DensityEstimator, MultivariateNormalEstimator)
-from master_thesis_experiments.main.synth_classification_simulation import \
-    SynthClassificationSimulation
+    DensityEstimator,
+    MultivariateNormalEstimator,
+)
+from master_thesis_experiments.main.synth_classification_simulation import (
+    SynthClassificationSimulation,
+)
 from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import (
-    SynthClassificationGenerator, logger)
+    SynthClassificationGenerator,
+    logger,
+)
 
 
 class UncertaintySamplingStrategy(BaseStrategy):

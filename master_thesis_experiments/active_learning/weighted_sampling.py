@@ -5,10 +5,8 @@ from scipy.stats import entropy
 from sklearn.linear_model import LogisticRegression
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
-from master_thesis_experiments.adaptation.density_estimation import \
-    DensityEstimator
-from master_thesis_experiments.handlers.weighting_handler import \
-    WeightingHandler
+from master_thesis_experiments.adaptation.density_estimation import DensityEstimator
+from master_thesis_experiments.handlers.weighting_handler import WeightingHandler
 
 
 class WeightedSamplingStrategy(BaseStrategy):
@@ -23,7 +21,10 @@ class WeightedSamplingStrategy(BaseStrategy):
         self.name = "WeightedSampling"
         self.model = LogisticRegression(multi_class="multinomial", solver="lbfgs")
         self.weighting_handler = WeightingHandler(
-            deepcopy(concept_list), n_samples, scaling_factor=0.7, similarity_measure="euclidean"
+            deepcopy(concept_list),
+            n_samples,
+            scaling_factor=1,
+            similarity_measure="euclidean",
         )
         self.weighting_handler.initialize()
         self.weights = None

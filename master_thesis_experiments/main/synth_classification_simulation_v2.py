@@ -13,29 +13,37 @@ from sklearn.metrics.pairwise import euclidean_distances
 from tqdm import tqdm
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
-from master_thesis_experiments.active_learning.label_spreading import \
-    LabelSpreadingStrategy
-from master_thesis_experiments.active_learning.random_sampling import \
-    RandomSamplingStrategy
-from master_thesis_experiments.active_learning.random_sampling_v2 import RandomSamplingStrategyV2
-from master_thesis_experiments.active_learning.uncertainty_spreading import \
-    UncertaintySpreadingStrategy
-from master_thesis_experiments.active_learning.weighted_sampling import WeightedSamplingStrategy
-from master_thesis_experiments.adaptation.density_estimation import \
-    MultivariateNormalEstimator
+from master_thesis_experiments.active_learning.label_spreading import (
+    LabelSpreadingStrategy,
+)
+from master_thesis_experiments.active_learning.random_sampling import (
+    RandomSamplingStrategy,
+)
+from master_thesis_experiments.active_learning.random_sampling_v2 import (
+    RandomSamplingStrategyV2,
+)
+from master_thesis_experiments.active_learning.uncertainty_spreading import (
+    UncertaintySpreadingStrategy,
+)
+from master_thesis_experiments.active_learning.weighted_sampling import (
+    WeightedSamplingStrategy,
+)
+from master_thesis_experiments.adaptation.density_estimation import (
+    MultivariateNormalEstimator,
+)
 from master_thesis_experiments.handlers.importance_weights import IWHandler
-from master_thesis_experiments.handlers.joint_probability import \
-    JointProbabilityHandler
+from master_thesis_experiments.handlers.joint_probability import JointProbabilityHandler
 from master_thesis_experiments.handlers.weighting_handler import WeightingHandler
-from master_thesis_experiments.simulator_toolbox.data_provider.base import \
-    DataProvider
-from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import \
-    SynthClassificationGenerator
+from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
+from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import (
+    SynthClassificationGenerator,
+)
 from master_thesis_experiments.simulator_toolbox.model.base import Model
-from master_thesis_experiments.simulator_toolbox.simulation.base import \
-    Simulation
+from master_thesis_experiments.simulator_toolbox.simulation.base import Simulation
 from master_thesis_experiments.simulator_toolbox.utils import (
-    get_logger, get_root_level_dir)
+    get_logger,
+    get_root_level_dir,
+)
 
 logger = get_logger(__name__)
 
@@ -253,6 +261,7 @@ class SynthClassificationSimulationV2(Simulation):
             "n_samples": self.n_samples,
             "means": [means.tolist() for means in self.generator.mean_values],
             "covs": [covs.tolist() for covs in self.generator.covariance_matrices],
+            "n_classes": N_CLASSES
         }
 
     def run(self):
@@ -274,17 +283,12 @@ class SynthClassificationSimulationV2(Simulation):
         """
 
         classifier = LogisticRegression(
-                multi_class='multinomial',
-                solver='sag',
-                max_iter=1000
-            )
+            multi_class="multinomial", solver="sag", max_iter=1000
+        )
 
         X, y = self.concepts[-1].get_split_dataset()
 
-        classifier.fit(
-            X=X,
-            y=y
-        )
+        classifier.fit(X=X, y=y)
         X_test, y_test = self.test_set.get_split_dataset()
         self.pre_AL_accuracy = classifier.score(X_test, y_test)
 
@@ -303,10 +307,7 @@ class SynthClassificationSimulationV2(Simulation):
             while n_samples > 0:
                 X_new, y_new = strategy_instance.run()
 
-                classifier.fit(
-                    X=X_new,
-                    y=y_new
-                )
+                classifier.fit(X=X_new, y=y_new)
 
                 n_selected_samples = self.n_samples - n_samples + 1
                 self.AL_accuracy[
@@ -336,7 +337,7 @@ class SynthClassificationSimulationV2(Simulation):
             + "/pre_AL_accuracy.csv"
         )
 
-        with open(pre_AL_accuracy_path, 'w') as f:
+        with open(pre_AL_accuracy_path, "w") as f:
             writer = csv.writer(f)
             writer.writerow([self.pre_AL_accuracy])
 
@@ -354,7 +355,7 @@ class SynthClassificationSimulationV2(Simulation):
             )
             AL_accuracy_path.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(AL_accuracy_path, 'w') as f:
+            with open(AL_accuracy_path, "w") as f:
                 writer = csv.writer(f)
                 writer.writerow([item])
 
@@ -375,13 +376,12 @@ class SynthClassificationSimulationV2(Simulation):
 
         # save generation metadata
         metadata_file = (
-                self.simulation_results_dir + "/" + str(experiment_index) + "/metadata.json"
+            self.simulation_results_dir + "/" + str(experiment_index) + "/metadata.json"
         )
         with open(metadata_file, "w") as metadata_file:
             json.dump(self.metadata, metadata_file)
 
     def soft_reset(self):
-
         self.generator.reset()
 
         self.metadata = None
@@ -398,7 +398,7 @@ class SynthClassificationSimulationV2(Simulation):
 
 
 if __name__ == "__main__":
-    N_EXPERIMENTS = 1
+    N_EXPERIMENTS = 5
 
     N_SAMPLES = 200
 

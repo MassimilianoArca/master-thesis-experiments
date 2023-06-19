@@ -4,10 +4,8 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from master_thesis_experiments.adaptation.density_estimation import \
-    DensityEstimator
-from master_thesis_experiments.simulator_toolbox.data_provider.base import \
-    DataProvider
+from master_thesis_experiments.adaptation.density_estimation import DensityEstimator
+from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
 logger = get_logger(__file__)

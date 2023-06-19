@@ -6,8 +6,7 @@ from scipy.stats import entropy
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import pairwise
 
-from master_thesis_experiments.simulator_toolbox.data_provider.base import \
-    DataProvider
+from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
 
 
 class WeightingHandler:
@@ -50,7 +49,9 @@ class WeightingHandler:
         X_current = pd.DataFrame(X_current)
 
         for index, class_ in enumerate(self.classes):
-            X_filtered_past = X_past.loc[self.past_dataset.get_dataset()[output_column] == class_]
+            X_filtered_past = X_past.loc[
+                self.past_dataset.get_dataset()[output_column] == class_
+            ]
             X_filtered_past_indexes = X_filtered_past.index.values.tolist()
 
             X_filtered_current = X_current.loc[
@@ -61,6 +62,12 @@ class WeightingHandler:
                 X_filtered_past, X_filtered_current
             )
             similarity_vector = np.sum(similarity_matrix, axis=1)
+
+            # normalize similarity vector
+            min_distance = np.min(similarity_vector)
+            max_distance = np.max(similarity_vector)
+
+            similarity_vector = (similarity_vector - min_distance) / (max_distance - min_distance)
 
             # weight update
             self.weights["weights"].loc[X_filtered_past_indexes] = (
@@ -83,15 +90,25 @@ class WeightingHandler:
         output_column = self.past_dataset.get_dataset().columns[-1]
         X_past, _ = self.past_dataset.get_split_dataset()
         X_past = pd.DataFrame(X_past)
-        X_past.set_index(pd.Index(self.past_dataset.get_dataset().index.tolist()), inplace=True)
+        X_past.set_index(
+            pd.Index(self.past_dataset.get_dataset().index.tolist()), inplace=True
+        )
 
-        X_filtered_past = X_past.loc[self.past_dataset.get_dataset()[output_column] == sample_label]
+        X_filtered_past = X_past.loc[
+            self.past_dataset.get_dataset()[output_column] == sample_label
+        ]
         X_filtered_past_indexes = X_filtered_past.index.values.tolist()
 
         similarity_vector = pairwise.euclidean_distances(
             X_filtered_past, sample_features.reshape(1, -1)
         )
         similarity_vector = np.sum(similarity_vector, axis=1)
+
+        # normalize similarity vector
+        min_distance = np.min(similarity_vector)
+        max_distance = np.max(similarity_vector)
+
+        similarity_vector = (similarity_vector - min_distance) / (max_distance - min_distance)
 
         # weight update
         self.weights["weights"].loc[X_filtered_past_indexes] = (

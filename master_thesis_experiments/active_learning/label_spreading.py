@@ -11,8 +11,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.semi_supervised import LabelSpreading
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
-from master_thesis_experiments.adaptation.density_estimation import \
-    DensityEstimator
+from master_thesis_experiments.adaptation.density_estimation import DensityEstimator
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
 logger = get_logger(__name__)

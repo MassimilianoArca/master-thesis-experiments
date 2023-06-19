@@ -3,8 +3,7 @@ from os.path import exists
 
 import pandas as pd
 
-from master_thesis_experiments.simulator_toolbox.utils import \
-    split_dataframe_xy
+from master_thesis_experiments.simulator_toolbox.utils import split_dataframe_xy
 
 
 class DataProvider:

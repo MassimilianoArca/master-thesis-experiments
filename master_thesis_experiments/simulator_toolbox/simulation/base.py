@@ -5,8 +5,7 @@ from typing import List
 
 import pandas as pd
 
-from master_thesis_experiments.simulator_toolbox.data_provider.base import \
-    DataProvider
+from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
 
 
 class Simulation:
