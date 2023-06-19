@@ -6,9 +6,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 
 from master_thesis_experiments.adaptation.density_estimation import (
-    DensityEstimator,
-    MultivariateNormalEstimator,
-)
+    DensityEstimator, MultivariateNormalEstimator)
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
 logger = get_logger(__name__)

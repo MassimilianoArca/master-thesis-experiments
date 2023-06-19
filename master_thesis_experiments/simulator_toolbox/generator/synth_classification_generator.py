@@ -6,14 +6,11 @@ import pandas as pd
 from scipy.stats import multivariate_normal
 
 from master_thesis_experiments.simulator_toolbox.enums import GeneratorType
-from master_thesis_experiments.simulator_toolbox.generator.base import Generator
+from master_thesis_experiments.simulator_toolbox.generator.base import \
+    Generator
 from master_thesis_experiments.simulator_toolbox.utils import (
-    compute_default_columns_names,
-    generate_triangular_matrix,
-    get_logger,
-    is_pd,
-    nearest_pd,
-)
+    compute_default_columns_names, generate_triangular_matrix, get_logger,
+    is_pd, nearest_pd)
 
 logger = get_logger(__name__)
 

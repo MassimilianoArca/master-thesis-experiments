@@ -3,9 +3,11 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-from master_thesis_experiments.adaptation.density_estimation import DensityEstimator
+from master_thesis_experiments.adaptation.density_estimation import \
+    DensityEstimator
 from master_thesis_experiments.simulator_toolbox.model.base import Model
-from master_thesis_experiments.simulator_toolbox.utils import split_dataframe_xy
+from master_thesis_experiments.simulator_toolbox.utils import \
+    split_dataframe_xy
 
 
 class JointProbabilityHandler:
@@ -96,7 +98,9 @@ class JointProbabilityHandler:
         self.classifier.fit(X, Y)
         X_test, Y_test = split_dataframe_xy(self.test_set)
         try:
-            return pd.DataFrame(self.classifier.predict_proba(X_test), columns=self.classes)
+            return pd.DataFrame(
+                self.classifier.predict_proba(X_test), columns=self.classes
+            )
         except ValueError as e:
             print(e)
 

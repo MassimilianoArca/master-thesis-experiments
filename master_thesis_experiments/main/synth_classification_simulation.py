@@ -10,28 +10,26 @@ from sklearn.metrics.pairwise import euclidean_distances
 from tqdm import tqdm
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
-from master_thesis_experiments.active_learning.label_spreading import LabelSpreadingStrategy
-from master_thesis_experiments.active_learning.random_sampling import (
-    RandomSamplingStrategy,
-)
-from master_thesis_experiments.active_learning.uncertainty_spreading import (
-    UncertaintySpreadingStrategy,
-)
-from master_thesis_experiments.adaptation.density_estimation import (
-    MultivariateNormalEstimator,
-)
+from master_thesis_experiments.active_learning.label_spreading import \
+    LabelSpreadingStrategy
+from master_thesis_experiments.active_learning.random_sampling import \
+    RandomSamplingStrategy
+from master_thesis_experiments.active_learning.uncertainty_spreading import \
+    UncertaintySpreadingStrategy
+from master_thesis_experiments.adaptation.density_estimation import \
+    MultivariateNormalEstimator
 from master_thesis_experiments.handlers.importance_weights import IWHandler
-from master_thesis_experiments.handlers.joint_probability import JointProbabilityHandler
-from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
-from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import (
-    SynthClassificationGenerator,
-)
+from master_thesis_experiments.handlers.joint_probability import \
+    JointProbabilityHandler
+from master_thesis_experiments.simulator_toolbox.data_provider.base import \
+    DataProvider
+from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import \
+    SynthClassificationGenerator
 from master_thesis_experiments.simulator_toolbox.model.base import Model
-from master_thesis_experiments.simulator_toolbox.simulation.base import Simulation
+from master_thesis_experiments.simulator_toolbox.simulation.base import \
+    Simulation
 from master_thesis_experiments.simulator_toolbox.utils import (
-    get_logger,
-    get_root_level_dir,
-)
+    get_logger, get_root_level_dir)
 
 logger = get_logger(__name__)
 
@@ -146,20 +144,24 @@ class SynthClassificationSimulation(Simulation):
 
             if i != n_concepts - 1:
                 dataset = self.generator.generate(concept_size)
-                generated_classes = dataset['y_0'].unique()
+                generated_classes = dataset["y_0"].unique()
 
                 while len(generated_classes) != self.generator.n_classes:
-                    logger.debug("Regenerating dataset, some class did not generate any sample")
+                    logger.debug(
+                        "Regenerating dataset, some class did not generate any sample"
+                    )
                     dataset = self.generator.generate(concept_size)
-                    generated_classes = dataset['y_0'].unique()
+                    generated_classes = dataset["y_0"].unique()
             else:
                 dataset = self.generator.generate(last_concept_size)
-                generated_classes = dataset['y_0'].unique()
+                generated_classes = dataset["y_0"].unique()
 
                 while len(generated_classes) != self.generator.n_classes:
-                    logger.debug("Regenerating dataset, some class did not generate any sample")
+                    logger.debug(
+                        "Regenerating dataset, some class did not generate any sample"
+                    )
                     dataset = self.generator.generate(last_concept_size)
-                    generated_classes = dataset['y_0'].unique()
+                    generated_classes = dataset["y_0"].unique()
 
                 if self.test_set is None:
                     self.test_set = self.generator.generate(self.test_set_size)

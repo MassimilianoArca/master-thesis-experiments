@@ -1,10 +1,13 @@
 from abc import abstractmethod
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 
-from master_thesis_experiments.adaptation.density_estimation import DensityEstimator
-from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
+from master_thesis_experiments.adaptation.density_estimation import \
+    DensityEstimator
+from master_thesis_experiments.simulator_toolbox.data_provider.base import \
+    DataProvider
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
 logger = get_logger(__file__)
@@ -81,7 +84,7 @@ class BaseStrategy:
             ]
             pdfs.append(estimator.pdf(X))
 
-        norm_pdfs = [float(i)/sum(pdfs) for i in pdfs]
+        norm_pdfs = [float(i) / sum(pdfs) for i in pdfs]
         class_list = np.array(self.classes, float)
         label = np.random.choice(a=class_list, size=1, p=norm_pdfs)[0]
         self.selected_sample[-1] = label

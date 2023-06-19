@@ -2,15 +2,10 @@ import numpy as np
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
 from master_thesis_experiments.adaptation.density_estimation import (
-    DensityEstimator,
-    MultivariateNormalEstimator,
-)
-
+    DensityEstimator, MultivariateNormalEstimator)
 # from master_thesis_experiments.main.synth_classification_simulation import SynthClassificationSimulation
 from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import (
-    SynthClassificationGenerator,
-    logger,
-)
+    SynthClassificationGenerator, logger)
 
 
 class FirstKSamplingStrategy(BaseStrategy):

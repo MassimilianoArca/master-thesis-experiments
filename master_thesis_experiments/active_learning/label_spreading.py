@@ -3,16 +3,16 @@ from copy import deepcopy
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import pairwise
-from sklearn.naive_bayes import GaussianNB
-from sklearn.semi_supervised import LabelSpreading
 from scipy.stats.distributions import entropy
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import DistanceMetric, pairwise
+from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import NearestNeighbors
-from sklearn.metrics import DistanceMetric
+from sklearn.semi_supervised import LabelSpreading
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
-from master_thesis_experiments.adaptation.density_estimation import DensityEstimator
+from master_thesis_experiments.adaptation.density_estimation import \
+    DensityEstimator
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
 logger = get_logger(__name__)
@@ -27,7 +27,7 @@ def calculate_representativeness(X):
 
 
 def calculate_diversity(X):
-    dist_metric = DistanceMetric.get_metric('euclidean')
+    dist_metric = DistanceMetric.get_metric("euclidean")
     pairwise_distances = dist_metric.pairwise(X)
     diversity = 1 / (pairwise_distances.mean(axis=1) + 1e-6)
     return diversity
@@ -35,11 +35,11 @@ def calculate_diversity(X):
 
 class LabelSpreadingStrategy(BaseStrategy):
     def __init__(
-            self,
-            concept_mapping,
-            concept_list,
-            n_samples,
-            estimator_type: DensityEstimator(),
+        self,
+        concept_mapping,
+        concept_list,
+        n_samples,
+        estimator_type: DensityEstimator(),
     ):
         super().__init__(concept_mapping, concept_list, n_samples, estimator_type)
         self.name = "LabelSpreading"
@@ -127,15 +127,19 @@ class LabelSpreadingStrategy(BaseStrategy):
             )
 
             self.new_samples_uncertainty[index] = (
-                                                          n_total_predictions - n_right_predictions
-                                                  ) / n_total_predictions
+                n_total_predictions - n_right_predictions
+            ) / n_total_predictions
 
         self.new_samples_uncertainty = pd.DataFrame(self.new_samples_uncertainty)
 
         # set to 0 the uncertainty of the new added samples,
         # since they are selected samples from the past
-        new_added_samples_size = self.enriched_concept.n_samples - self.current_concept.n_samples
-        self.new_samples_uncertainty.loc[self.new_samples_uncertainty.tail(new_added_samples_size).index] = 0
+        new_added_samples_size = (
+            self.enriched_concept.n_samples - self.current_concept.n_samples
+        )
+        self.new_samples_uncertainty.loc[
+            self.new_samples_uncertainty.tail(new_added_samples_size).index
+        ] = 0
 
     def compute_past_samples_uncertainty(self):
         logger.debug("Computing past samples uncertainty...")
@@ -181,7 +185,8 @@ class LabelSpreadingStrategy(BaseStrategy):
             metric="jaccard",
         )
         self.new_samples_target_similarity = pd.DataFrame(
-            self.new_samples_target_similarity)
+            self.new_samples_target_similarity
+        )
 
     def select_samples(self):
         self.iteration += 1
@@ -199,7 +204,9 @@ class LabelSpreadingStrategy(BaseStrategy):
         pred_entropies.drop(pred_entropies.tail(self.n_new_samples).index, inplace=True)
 
         representativeness = pd.DataFrame(calculate_representativeness(self.X))
-        representativeness.drop(representativeness.tail(self.n_new_samples).index, inplace=True)
+        representativeness.drop(
+            representativeness.tail(self.n_new_samples).index, inplace=True
+        )
 
         diversity = pd.DataFrame(calculate_diversity(self.X))
         diversity.drop(diversity.tail(self.n_new_samples).index, inplace=True)

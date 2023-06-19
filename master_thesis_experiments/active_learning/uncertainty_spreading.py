@@ -8,7 +8,8 @@ from sklearn.metrics import pairwise
 from sklearn.naive_bayes import GaussianNB
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
-from master_thesis_experiments.adaptation.density_estimation import DensityEstimator
+from master_thesis_experiments.adaptation.density_estimation import \
+    DensityEstimator
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
 logger = get_logger(__name__)
@@ -114,8 +115,12 @@ class UncertaintySpreadingStrategy(BaseStrategy):
 
         # set to 0 the uncertainty of the new added samples,
         # since they are selected samples from the past
-        new_added_samples_size = self.enriched_concept.n_samples - self.current_concept.n_samples
-        self.new_samples_uncertainty.loc[self.new_samples_uncertainty.tail(new_added_samples_size).index] = 0
+        new_added_samples_size = (
+            self.enriched_concept.n_samples - self.current_concept.n_samples
+        )
+        self.new_samples_uncertainty.loc[
+            self.new_samples_uncertainty.tail(new_added_samples_size).index
+        ] = 0
 
     def compute_past_samples_uncertainty(self):
         logger.debug("Computing past samples uncertainty...")
@@ -212,12 +217,13 @@ class UncertaintySpreadingStrategy(BaseStrategy):
 
         # TODO try different combinations of multiplications
 
-        uncertainty_vector = self.past_samples_uncertainty * temporary_matrix  # Mx1 * Mx1 = Mx1
+        uncertainty_vector = (
+            self.past_samples_uncertainty * temporary_matrix
+        )  # Mx1 * Mx1 = Mx1
 
         n_iterations = 20
 
         for _ in range(n_iterations):
-
             uncertainty_vector = self.past_samples_input_similarity.dot(
                 uncertainty_vector
             )  # MxM @ Mx1 = Mx1

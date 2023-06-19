@@ -1,4 +1,5 @@
 import random
+from copy import deepcopy
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
 from master_thesis_experiments.adaptation.density_estimation import \
@@ -8,16 +9,16 @@ from master_thesis_experiments.simulator_toolbox.utils import get_logger
 logger = get_logger(__file__)
 
 
-class RandomSamplingStrategy(BaseStrategy):
+class RandomSamplingStrategyV2(BaseStrategy):
     def __init__(
-        self,
-        concept_mapping,
-        concept_list,
-        n_samples,
-        estimator_type: DensityEstimator(),
+            self,
+            concept_mapping,
+            concept_list,
+            n_samples,
+            estimator_type: DensityEstimator(),
     ):
         super().__init__(concept_mapping, concept_list, n_samples, estimator_type)
-        self.name = "RandomSampling"
+        self.name = "RandomSamplingV2"
 
     def initialize(self):
         if self.past_dataset is None:
@@ -43,7 +44,4 @@ class RandomSamplingStrategy(BaseStrategy):
         self.relabel_samples()
         self.add_samples_to_concept()
 
-        new_concepts_list = self.concept_list
-        new_concepts_list[-1] = self.current_concept
-
-        return new_concepts_list
+        return deepcopy(self.current_concept.get_split_dataset())
