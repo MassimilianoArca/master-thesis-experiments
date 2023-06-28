@@ -27,9 +27,10 @@ class UncertaintySamplingStrategy(BaseStrategy):
         concept_mapping,
         concept_list,
         n_samples,
+        prior_probs,
         estimator_type: DensityEstimator(),
     ):
-        super().__init__(concept_mapping, concept_list, n_samples, estimator_type)
+        super().__init__(concept_mapping, concept_list, n_samples, prior_probs, estimator_type)
 
         self.classifiers = {}
         self.label_per_concept = None

@@ -17,11 +17,13 @@ class BaseStrategy:
         concept_mapping,
         concept_list,
         n_samples,
+        prior_probs,
         estimator_type: DensityEstimator(),
     ):
         self.concept_mapping = concept_mapping
         self.concept_list = concept_list
         self.n_samples = n_samples
+        self.prior_probs = prior_probs
         self.estimator_type = estimator_type
 
         self.past_concepts = concept_list[:-1]
@@ -65,9 +67,6 @@ class BaseStrategy:
     def select_samples(self):
         pass
 
-    # fare sampling per la label calcolando ogni p(x|y)
-    # e facendo la normalizzazione, cosi che possa vederle
-    # come delle probabilità
     def relabel_samples(self):
         logger.debug("Relabeling samples...")
 
@@ -75,17 +74,33 @@ class BaseStrategy:
         # the class y for which the p(x|y) is higher
 
         X = self.selected_sample[:-1]
-        pdfs = []
+
+        max_posterior = -np.inf
         for class_ in self.classes:
-            estimator = self.concept_mapping[self.current_concept.name][
+            dist = self.concept_mapping[self.current_concept.name][
                 "class_" + str(class_)
             ]
-            pdfs.append(estimator.pdf(X))
+            likelihood = dist.pdf(X)
+            posterior = likelihood * self.prior_probs[class_]
+            if posterior > max_posterior:
+                max_posterior = likelihood
+                self.selected_sample[-1] = class_
 
-        norm_pdfs = [float(i) / sum(pdfs) for i in pdfs]
-        class_list = np.array(self.classes, float)
-        label = np.random.choice(a=class_list, size=1, p=norm_pdfs)[0]
-        self.selected_sample[-1] = label
+        # fare sampling per la label calcolando ogni p(x|y)
+        # e facendo la normalizzazione, cosi che possa vederle
+        # come delle probabilità
+
+        # pdfs = []
+        # for class_ in self.classes:
+        #     estimator = self.concept_mapping[self.current_concept.name][
+        #         "class_" + str(class_)
+        #     ]
+        #     pdfs.append(estimator.pdf(X))
+        #
+        # norm_pdfs = [float(i) / sum(pdfs) for i in pdfs]
+        # class_list = np.array(self.classes, float)
+        # label = np.random.choice(a=class_list, size=1, p=norm_pdfs)[0]
+        # self.selected_sample[-1] = label
 
     def add_samples_to_concept(self):
         logger.debug("Adding samples to current concept...")

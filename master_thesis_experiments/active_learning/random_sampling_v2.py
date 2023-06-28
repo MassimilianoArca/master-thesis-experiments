@@ -14,14 +14,17 @@ class RandomSamplingStrategyV2(BaseStrategy):
         concept_mapping,
         concept_list,
         n_samples,
+        prior_probs,
         estimator_type: DensityEstimator(),
     ):
-        super().__init__(concept_mapping, concept_list, n_samples, estimator_type)
+        super().__init__(concept_mapping, concept_list, n_samples, prior_probs, estimator_type)
         self.name = "RandomSamplingV2"
 
     def initialize(self):
         if self.past_dataset is None:
             super().initialize()
+
+        self.estimate_new_concept()
 
     def select_samples(self):
         self.iteration += 1

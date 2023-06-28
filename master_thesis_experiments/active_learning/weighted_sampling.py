@@ -1,12 +1,18 @@
 from copy import deepcopy
 
+import numpy as np
 import pandas as pd
 from scipy.stats import entropy
 from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.metrics import pairwise
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
 from master_thesis_experiments.adaptation.density_estimation import DensityEstimator
 from master_thesis_experiments.handlers.weighting_handler import WeightingHandler
+from master_thesis_experiments.simulator_toolbox.utils import get_logger
+
+logger = get_logger(__file__)
 
 
 class WeightedSamplingStrategy(BaseStrategy):
@@ -15,9 +21,10 @@ class WeightedSamplingStrategy(BaseStrategy):
         concept_mapping,
         concept_list,
         n_samples,
+        prior_probs,
         estimator_type: DensityEstimator(),
     ):
-        super().__init__(concept_mapping, concept_list, n_samples, estimator_type)
+        super().__init__(concept_mapping, concept_list, n_samples, prior_probs, estimator_type)
         self.name = "WeightedSampling"
         self.model = LogisticRegression(multi_class="multinomial", solver="lbfgs")
         self.weighting_handler = WeightingHandler(
@@ -39,19 +46,52 @@ class WeightedSamplingStrategy(BaseStrategy):
         self.weights = self.weighting_handler.compute_pre_weights()
 
     def train_model(self):
-        X, y = self.past_dataset.get_split_dataset()
-        self.model.fit(X, y, sample_weight=self.weights.to_numpy().ravel())
+        logger.debug("Training model...")
+
+        X_past, y_past = self.past_dataset.get_split_dataset()
+        X_current, y_current = self.current_concept.get_split_dataset()
+        X = np.concatenate((X_past, X_current), axis=0)
+        y = np.concatenate((y_past, y_current), axis=0)
+
+        X_current_shape = X_current.shape[0]
+        sample_weight = pd.concat(
+            [self.weights, pd.DataFrame({"weights": [1] * X_current_shape})],
+            axis=0,
+            ignore_index=True,
+        )
+
+        self.model.fit(X, y, sample_weight=sample_weight.to_numpy().ravel())
 
     def select_samples(self):
+        self.iteration += 1
+        logger.debug(f"Selecting sample #{self.iteration}...")
+
         X, _ = self.past_dataset.get_split_dataset()
 
         probabilities = self.model.predict_proba(X)
-        entropies = pd.DataFrame(entropy(probabilities.T))
+        entropies = pd.DataFrame(entropy(probabilities.T), columns=['entropy'])
 
         indexes = self.past_dataset.get_dataset().index.tolist()
-        entropies.set_index(pd.Index(indexes), inplace=True)
 
-        selected_sample_index = entropies.idxmax(axis=0)
+        score = entropies
+
+        # combine entropy with distance from already selected samples
+        if self.all_selected_samples:
+            alpha = 0.5
+
+            all_selected_samples = pd.DataFrame(self.all_selected_samples)
+            all_selected_samples = all_selected_samples[all_selected_samples.columns[:-1]]
+
+            # rbf kernel: close points have score close to 1,
+            # so I subtract 1 to have close points with score close to 0
+            similarity_matrix = 1 - pd.DataFrame(pairwise.rbf_kernel(X=X, Y=all_selected_samples, gamma=0.7))
+            similarity_vector = similarity_matrix.prod(axis=1)
+
+            score = alpha * entropies['entropy'] + (1 - alpha) * similarity_vector
+            score = score.to_frame()
+
+        score.set_index(pd.Index(indexes), inplace=True)
+        selected_sample_index = score.idxmax(axis=0)
         selected_sample_index = selected_sample_index.tolist()[0]
 
         sample = (
