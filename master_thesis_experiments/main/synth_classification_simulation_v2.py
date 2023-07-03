@@ -108,7 +108,7 @@ class SynthClassificationSimulationV2(Simulation):
         )
 
         self.cov_values = [
-            np.random.uniform(5, 9, triangular_size)
+            np.random.uniform(4, 7, triangular_size)
             for _ in range(self.generator.n_classes)
         ]
 
@@ -250,7 +250,7 @@ class SynthClassificationSimulationV2(Simulation):
                         )
                         covariance_matrices[i][class_] = self.generator.covariance_matrices[class_]
 
-            valid_means = check_means_distances(mean_values, min_distance=3.5)
+            valid_means = check_means_distances(mean_values, min_distance=4)
 
         for i in range(n_concepts):
 
@@ -265,6 +265,10 @@ class SynthClassificationSimulationV2(Simulation):
                     self.generator.mean_values[class_],
                     self.generator.covariance_matrices[class_],
                 )
+
+                # modify means and covs types for storing
+                mean_values[i][class_] = mean_values[i][class_].tolist()
+                covariance_matrices[i][class_] = covariance_matrices[i][class_].tolist()
 
             self.prior_probs_per_concept.append(self.generator.prior_probs.tolist())
 
@@ -311,8 +315,8 @@ class SynthClassificationSimulationV2(Simulation):
             "last_concept_size": last_concept_size,
             "prior_probs_per_concept": self.prior_probs_per_concept,
             "n_samples": self.n_samples,
-            "means": [means.tolist() for means in self.generator.mean_values],
-            "covs": [covs.tolist() for covs in self.generator.covariance_matrices],
+            "means_per_concept": mean_values,
+            "covs_per_concept": covariance_matrices,
             "n_classes": N_CLASSES,
         }
 
@@ -335,11 +339,11 @@ class SynthClassificationSimulationV2(Simulation):
         """
 
         classifier = LogisticRegression(
-            multi_class="multinomial", solver="sag", max_iter=1000
+            multi_class="multinomial", solver="sag"
         )
 
         clairvoyant_classifier = LogisticRegression(
-            multi_class="multinomial", solver="sag", max_iter=1000
+            multi_class="multinomial", solver="sag"
         )
 
         current_concept = deepcopy(self.concepts[-1].generated_dataset)
@@ -379,8 +383,7 @@ class SynthClassificationSimulationV2(Simulation):
                     current_concept[current_concept.columns[:-1]],
                     current_concept[current_concept.columns[-1]],
                 )
-
-                clairvoyant_classifier.fit(X=X_clrv, y=y_clrv)
+                clairvoyant_classifier.fit(X=X_clrv.to_numpy(), y=y_clrv.to_numpy())
 
                 X_new, y_new = strategy_instance.run()
                 classifier.fit(X=X_new, y=y_new)
@@ -523,16 +526,16 @@ class SynthClassificationSimulationV2(Simulation):
 
 
 if __name__ == "__main__":
-    N_EXPERIMENTS = 5
+    N_EXPERIMENTS = 10
 
-    N_SAMPLES = 150
+    N_SAMPLES = 200
 
     N_FEATURES = 2
     N_CLASSES = 10
 
     N_CONCEPTS = 5
-    CONCEPT_SIZE = 500
-    LAST_CONCEPT_SIZE = 15
+    CONCEPT_SIZE = 1000
+    LAST_CONCEPT_SIZE = 13
 
     TEST_SET_SIZE = 300
 

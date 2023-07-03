@@ -77,14 +77,14 @@ class WeightedSamplingStrategy(BaseStrategy):
 
         # combine entropy with distance from already selected samples
         if self.all_selected_samples:
-            alpha = 0.5
+            alpha = 0.4
 
             all_selected_samples = pd.DataFrame(self.all_selected_samples)
             all_selected_samples = all_selected_samples[all_selected_samples.columns[:-1]]
 
             # rbf kernel: close points have score close to 1,
             # so I subtract 1 to have close points with score close to 0
-            similarity_matrix = 1 - pd.DataFrame(pairwise.rbf_kernel(X=X, Y=all_selected_samples, gamma=0.7))
+            similarity_matrix = 1 - pd.DataFrame(pairwise.rbf_kernel(X=X, Y=all_selected_samples, gamma=0.1))
             similarity_vector = similarity_matrix.prod(axis=1)
 
             score = alpha * entropies['entropy'] + (1 - alpha) * similarity_vector
