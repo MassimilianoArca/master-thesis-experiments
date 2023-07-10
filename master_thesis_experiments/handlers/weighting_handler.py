@@ -123,7 +123,7 @@ class WeightingHandler:
         # euclidean_vector = pairwise.euclidean_distances(
         #     X_filtered_past, sample_features.reshape(1, -1)
         # )
-        rbf_vector = pairwise.rbf_kernel(X_filtered_past, sample_features.reshape(1, -1), gamma=1.0)
+        rbf_vector = pairwise.rbf_kernel(X_filtered_past, sample_features.reshape(1, -1), gamma=0.9)
 
         # similarity_vector = 1 / (1 + euclidean_vector)
         similarity_vector = 1 - rbf_vector

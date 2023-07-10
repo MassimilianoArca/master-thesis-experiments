@@ -86,16 +86,17 @@ class BaseStrategy:
                 max_posterior = likelihood
                 self.selected_sample[-1] = class_
 
+
         # fare sampling per la label calcolando ogni p(x|y)
         # e facendo la normalizzazione, cosi che possa vederle
         # come delle probabilità
 
         # pdfs = []
         # for class_ in self.classes:
-        #     estimator = self.concept_mapping[self.current_concept.name][
+        #     dist = self.concept_mapping[self.current_concept.name][
         #         "class_" + str(class_)
         #     ]
-        #     pdfs.append(estimator.pdf(X))
+        #     pdfs.append(dist.pdf(X))
         #
         # norm_pdfs = [float(i) / sum(pdfs) for i in pdfs]
         # class_list = np.array(self.classes, float)

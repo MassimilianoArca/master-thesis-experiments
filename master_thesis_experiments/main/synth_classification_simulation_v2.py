@@ -302,7 +302,7 @@ class SynthClassificationSimulationV2(Simulation):
                         "current_concept_extended", self.current_concept_extended
                     )
 
-            scaler.fit_transform(dataset)
+            # scaler.fit_transform(dataset)
             self.concepts.append(DataProvider("concept_" + str(i), dataset))
 
         self.metadata = {
@@ -338,22 +338,63 @@ class SynthClassificationSimulationV2(Simulation):
         iw_handler.soft_reset()
         """
 
-        classifier = LogisticRegression(
-            multi_class="multinomial", solver="sag"
-        )
+        scaler = preprocessing.StandardScaler()
 
-        clairvoyant_classifier = LogisticRegression(
-            multi_class="multinomial", solver="sag"
+        classifier = LogisticRegression(
+            multi_class="multinomial", solver="sag", random_state=42
         )
 
         current_concept = deepcopy(self.concepts[-1].generated_dataset)
 
         X, y = self.concepts[-1].get_split_dataset()
 
+        X = scaler.fit_transform(X)
+
         classifier.fit(X=X, y=y)
-        X_test, y_test = self.test_set.get_split_dataset()
+
+        test_set = deepcopy(self.test_set)
+        data = test_set.generated_dataset.values
+        X = data[:, :-1]
+        test_set.generated_dataset[test_set.generated_dataset.columns[:-1]] = scaler.fit_transform(X)
+        X_test, y_test = test_set.get_split_dataset()
         self.pre_AL_accuracy = classifier.score(X_test, y_test)
 
+        n_samples = self.n_samples
+
+        # Clairvoyant
+        while n_samples > 0:
+            n_selected_samples = self.n_samples - n_samples + 1
+
+            current_concept = pd.concat(
+                (
+                    current_concept,
+                    self.current_concept_extended.generated_dataset.iloc[
+                        [n_samples - 1]
+                    ],
+                ),
+                ignore_index=True,
+            )
+
+            scaled_current_concept = deepcopy(current_concept)
+
+            data = scaled_current_concept.values
+            X = data[:, :-1]
+            scaled_current_concept[scaled_current_concept.columns[:-1]] = scaler.fit_transform(X)
+
+            X_clrv, y_clrv = (
+                scaled_current_concept[scaled_current_concept.columns[:-1]],
+                scaled_current_concept[scaled_current_concept.columns[-1]],
+            )
+
+            classifier.fit(X=X_clrv.to_numpy(), y=y_clrv.to_numpy())
+
+            self.clairvoyant_accuracy[
+                n_selected_samples
+            ] = classifier.score(X_test, y_test)
+
+            n_samples -= 1
+
+        # AL strategy
         for strategy in self.strategies:
             strategy_instance: BaseStrategy = strategy(
                 concept_mapping=deepcopy(self.concept_mapping),
@@ -369,21 +410,6 @@ class SynthClassificationSimulationV2(Simulation):
             n_samples = self.n_samples
 
             while n_samples > 0:
-                current_concept = pd.concat(
-                    (
-                        current_concept,
-                        self.current_concept_extended.generated_dataset.iloc[
-                            [n_samples - 1]
-                        ],
-                    ),
-                    ignore_index=True,
-                )
-
-                X_clrv, y_clrv = (
-                    current_concept[current_concept.columns[:-1]],
-                    current_concept[current_concept.columns[-1]],
-                )
-                clairvoyant_classifier.fit(X=X_clrv.to_numpy(), y=y_clrv.to_numpy())
 
                 X_new, y_new = strategy_instance.run()
                 classifier.fit(X=X_new, y=y_new)
@@ -392,10 +418,6 @@ class SynthClassificationSimulationV2(Simulation):
                 self.AL_accuracy[
                     (strategy_instance.name, n_selected_samples)
                 ] = classifier.score(X_test, y_test)
-
-                self.clairvoyant_accuracy[
-                    n_selected_samples
-                ] = clairvoyant_classifier.score(X_test, y_test)
 
                 n_samples -= 1
 
@@ -528,7 +550,7 @@ class SynthClassificationSimulationV2(Simulation):
 if __name__ == "__main__":
     N_EXPERIMENTS = 10
 
-    N_SAMPLES = 200
+    N_SAMPLES = 300
 
     N_FEATURES = 2
     N_CLASSES = 10

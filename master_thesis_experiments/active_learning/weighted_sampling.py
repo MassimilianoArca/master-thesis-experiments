@@ -3,6 +3,7 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 from scipy.stats import entropy
+from sklearn import preprocessing
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.metrics import pairwise
@@ -14,6 +15,7 @@ from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
 logger = get_logger(__file__)
 
+scaler = preprocessing.StandardScaler()
 
 class WeightedSamplingStrategy(BaseStrategy):
     def __init__(
@@ -48,8 +50,18 @@ class WeightedSamplingStrategy(BaseStrategy):
     def train_model(self):
         logger.debug("Training model...")
 
-        X_past, y_past = self.past_dataset.get_split_dataset()
-        X_current, y_current = self.current_concept.get_split_dataset()
+        past_dataset = deepcopy(self.past_dataset)
+        data = past_dataset.generated_dataset.values
+        X = data[:, :-1]
+        past_dataset.generated_dataset[past_dataset.generated_dataset.columns[:-1]] = scaler.fit_transform(X)
+        X_past, y_past = past_dataset.get_split_dataset()
+
+        current_concept = deepcopy(self.current_concept)
+        data = current_concept.generated_dataset.values
+        X = data[:, :-1]
+        current_concept.generated_dataset[current_concept.generated_dataset.columns[:-1]] = scaler.fit_transform(X)
+        X_current, y_current = current_concept.get_split_dataset()
+
         X = np.concatenate((X_past, X_current), axis=0)
         y = np.concatenate((y_past, y_current), axis=0)
 
@@ -77,7 +89,7 @@ class WeightedSamplingStrategy(BaseStrategy):
 
         # combine entropy with distance from already selected samples
         if self.all_selected_samples:
-            alpha = 0.4
+            alpha = 0.3
 
             all_selected_samples = pd.DataFrame(self.all_selected_samples)
             all_selected_samples = all_selected_samples[all_selected_samples.columns[:-1]]
@@ -118,4 +130,11 @@ class WeightedSamplingStrategy(BaseStrategy):
             self.selected_sample, selected_sample_index
         )
 
-        return deepcopy(self.current_concept.get_split_dataset())
+        current_concept = deepcopy(self.current_concept)
+
+        data = current_concept.generated_dataset.values
+        X = data[:, :-1]
+        current_concept.generated_dataset[
+            current_concept.generated_dataset.columns[:-1]] = scaler.fit_transform(X)
+
+        return current_concept.get_split_dataset()

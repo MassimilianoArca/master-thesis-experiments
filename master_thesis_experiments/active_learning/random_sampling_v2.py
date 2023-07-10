@@ -1,12 +1,15 @@
 import random
 from copy import deepcopy
 
+from sklearn import preprocessing
+
 from master_thesis_experiments.active_learning.base import BaseStrategy
 from master_thesis_experiments.adaptation.density_estimation import DensityEstimator
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
 logger = get_logger(__file__)
 
+scaler = preprocessing.StandardScaler()
 
 class RandomSamplingStrategyV2(BaseStrategy):
     def __init__(
@@ -46,4 +49,11 @@ class RandomSamplingStrategyV2(BaseStrategy):
         self.relabel_samples()
         self.add_samples_to_concept()
 
-        return deepcopy(self.current_concept.get_split_dataset())
+        current_concept = deepcopy(self.current_concept)
+
+        data = current_concept.generated_dataset.values
+        X = data[:, :-1]
+        current_concept.generated_dataset[
+            current_concept.generated_dataset.columns[:-1]] = scaler.fit_transform(X)
+
+        return current_concept.get_split_dataset()
