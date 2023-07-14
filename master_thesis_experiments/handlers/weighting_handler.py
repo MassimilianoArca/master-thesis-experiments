@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import entropy
 from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import pairwise
 
 from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
@@ -30,7 +31,6 @@ class WeightingHandler:
         self.past_dataset = None
         self.n_past_samples = None
         self.weights = None
-        self.model = None
         self.classes = None
         self.similarities = None
 
@@ -46,8 +46,6 @@ class WeightingHandler:
         self.n_past_samples = self.past_dataset.n_samples
 
         self.weights = pd.DataFrame({"weights": np.ones(self.n_past_samples)})
-
-        self.model = LogisticRegression(multi_class="multinomial", solver="sag")
 
     def compute_pre_weights(self):
         output_column = self.past_dataset.get_dataset().columns[-1]

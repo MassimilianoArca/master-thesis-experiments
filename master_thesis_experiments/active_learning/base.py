@@ -75,33 +75,33 @@ class BaseStrategy:
 
         X = self.selected_sample[:-1]
 
-        max_posterior = -np.inf
-        for class_ in self.classes:
-            dist = self.concept_mapping[self.current_concept.name][
-                "class_" + str(class_)
-            ]
-            likelihood = dist.pdf(X)
-            posterior = likelihood * self.prior_probs[class_]
-            if posterior > max_posterior:
-                max_posterior = likelihood
-                self.selected_sample[-1] = class_
+        # max_posterior = -np.inf
+        # for class_ in self.classes:
+        #     dist = self.concept_mapping[self.current_concept.name][
+        #         "class_" + str(class_)
+        #     ]
+        #     likelihood = dist.pdf(X)
+        #     posterior = likelihood * self.prior_probs[class_]
+        #     if posterior > max_posterior:
+        #         max_posterior = likelihood
+        #         self.selected_sample[-1] = class_
 
 
         # fare sampling per la label calcolando ogni p(x|y)
         # e facendo la normalizzazione, cosi che possa vederle
         # come delle probabilità
 
-        # pdfs = []
-        # for class_ in self.classes:
-        #     dist = self.concept_mapping[self.current_concept.name][
-        #         "class_" + str(class_)
-        #     ]
-        #     pdfs.append(dist.pdf(X))
-        #
-        # norm_pdfs = [float(i) / sum(pdfs) for i in pdfs]
-        # class_list = np.array(self.classes, float)
-        # label = np.random.choice(a=class_list, size=1, p=norm_pdfs)[0]
-        # self.selected_sample[-1] = label
+        pdfs = []
+        for class_ in self.classes:
+            dist = self.concept_mapping[self.current_concept.name][
+                "class_" + str(class_)
+            ]
+            pdfs.append(dist.pdf(X))
+
+        norm_pdfs = [float(i) / sum(pdfs) for i in pdfs]
+        class_list = np.array(self.classes, float)
+        label = np.random.choice(a=class_list, size=1, p=norm_pdfs)[0]
+        self.selected_sample[-1] = label
 
     def add_samples_to_concept(self):
         logger.debug("Adding samples to current concept...")

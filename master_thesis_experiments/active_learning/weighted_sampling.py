@@ -5,7 +5,7 @@ import pandas as pd
 from scipy.stats import entropy
 from sklearn import preprocessing
 from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import pairwise
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
@@ -17,18 +17,19 @@ logger = get_logger(__file__)
 
 scaler = preprocessing.StandardScaler()
 
+
 class WeightedSamplingStrategy(BaseStrategy):
     def __init__(
-        self,
-        concept_mapping,
-        concept_list,
-        n_samples,
-        prior_probs,
-        estimator_type: DensityEstimator(),
+            self,
+            concept_mapping,
+            concept_list,
+            n_samples,
+            prior_probs,
+            estimator_type: DensityEstimator(),
     ):
         super().__init__(concept_mapping, concept_list, n_samples, prior_probs, estimator_type)
         self.name = "WeightedSampling"
-        self.model = LogisticRegression(multi_class="multinomial", solver="lbfgs")
+        self.model = GaussianNB()
         self.weighting_handler = WeightingHandler(
             deepcopy(concept_list),
             n_samples,
@@ -82,6 +83,8 @@ class WeightedSamplingStrategy(BaseStrategy):
 
         probabilities = self.model.predict_proba(X)
         entropies = pd.DataFrame(entropy(probabilities.T), columns=['entropy'])
+        max_entropy = np.ones(len(self.classes)) * (1 / len(self.classes))
+        entropies['entropy'] = entropies['entropy'] / entropy(max_entropy)
 
         indexes = self.past_dataset.get_dataset().index.tolist()
 
@@ -89,17 +92,19 @@ class WeightedSamplingStrategy(BaseStrategy):
 
         # combine entropy with distance from already selected samples
         if self.all_selected_samples:
-            alpha = 0.3
+            alpha = 0.4
 
             all_selected_samples = pd.DataFrame(self.all_selected_samples)
             all_selected_samples = all_selected_samples[all_selected_samples.columns[:-1]]
 
             # rbf kernel: close points have score close to 1,
             # so I subtract 1 to have close points with score close to 0
-            similarity_matrix = 1 - pd.DataFrame(pairwise.rbf_kernel(X=X, Y=all_selected_samples, gamma=0.1))
-            similarity_vector = similarity_matrix.prod(axis=1)
+            distance_matrix = 1 - pd.DataFrame(pairwise.rbf_kernel(X=X, Y=all_selected_samples, gamma=0.1))
 
-            score = alpha * entropies['entropy'] + (1 - alpha) * similarity_vector
+            # normalizzare entropia e provare la media o min
+            distance_vector = distance_matrix.min(axis=1)
+
+            score = alpha * entropies['entropy'] + (1 - alpha) * distance_vector
             score = score.to_frame()
 
         score.set_index(pd.Index(indexes), inplace=True)

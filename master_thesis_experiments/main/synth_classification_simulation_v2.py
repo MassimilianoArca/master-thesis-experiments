@@ -1,4 +1,5 @@
 import csv
+import itertools
 import json
 from copy import deepcopy
 from pathlib import Path
@@ -78,6 +79,9 @@ class SynthClassificationSimulationV2(Simulation):
             name, generator, strategies, results_dir, n_samples, estimator_type
         )
 
+        self.gamma = None
+        self.alpha = None
+        self.clairvoyant_final_accuracy = None
         self.current_concept_extended = None
         self.test_set_size = test_set_size
         self.mean_values = []
@@ -93,8 +97,6 @@ class SynthClassificationSimulationV2(Simulation):
         This method generates the dataset
         """
         logger.debug("Generating the dataset...")
-
-        scaler = preprocessing.StandardScaler()
 
         n = self.generator.size
         triangular_size = int(n * (n + 1) / 2)
@@ -320,7 +322,7 @@ class SynthClassificationSimulationV2(Simulation):
             "n_classes": N_CLASSES,
         }
 
-    def run(self):
+    def run(self, alpha, gamma):
         """
         iw_handler = IWHandler(
             concept_mapping=self.concept_mapping,
@@ -337,6 +339,8 @@ class SynthClassificationSimulationV2(Simulation):
 
         iw_handler.soft_reset()
         """
+        self.alpha = alpha
+        self.gamma = gamma
 
         scaler = preprocessing.StandardScaler()
 
@@ -394,6 +398,21 @@ class SynthClassificationSimulationV2(Simulation):
 
             n_samples -= 1
 
+        current_concept = pd.concat((deepcopy(self.concepts[-1].generated_dataset), self.current_concept_extended.generated_dataset), ignore_index=True)
+
+        data = current_concept.values
+        X = data[:, :-1]
+        current_concept[current_concept.columns[:-1]] = scaler.fit_transform(X)
+
+        X_clrv, y_clrv = (
+            current_concept[current_concept.columns[:-1]],
+            current_concept[current_concept.columns[-1]],
+        )
+
+        classifier.fit(X=X_clrv.to_numpy(), y=y_clrv.to_numpy())
+
+        self.clairvoyant_final_accuracy = classifier.score(X_test, y_test)
+
         # AL strategy
         for strategy in self.strategies:
             strategy_instance: BaseStrategy = strategy(
@@ -436,7 +455,7 @@ class SynthClassificationSimulationV2(Simulation):
                 )
 
     def store_results(self, experiment_index):
-        concepts_path = Path(self.simulation_results_dir + "/" + str(experiment_index))
+        concepts_path = Path(self.simulation_results_dir + "alpha:" + str(self.alpha) + "-" + "gamma:" + str(self.gamma) + "/" + str(experiment_index))
         concepts_path.mkdir(parents=True, exist_ok=True)
 
         # Save concepts
@@ -461,6 +480,18 @@ class SynthClassificationSimulationV2(Simulation):
         with open(pre_AL_accuracy_path, "w") as f:
             writer = csv.writer(f)
             writer.writerow([self.pre_AL_accuracy])
+
+        # Save Clairvoyant final accuracy
+        clairvoyant_final_accuracy_path = Path(
+            self.simulation_results_dir
+            + "/"
+            + str(experiment_index)
+            + "/clairvoyant_final_accuracy.csv"
+        )
+
+        with open(clairvoyant_final_accuracy_path, "w") as f:
+            writer = csv.writer(f)
+            writer.writerow([self.clairvoyant_final_accuracy])
 
         # Save AL accuracy
         for key, item in self.AL_accuracy.items():
@@ -548,7 +579,9 @@ class SynthClassificationSimulationV2(Simulation):
 
 
 if __name__ == "__main__":
-    N_EXPERIMENTS = 10
+    alphas = np.linspace(0.1, 1.0, 10)
+    gammas = np.linspace(0.1, 1.0, 10)
+    N_EXPERIMENTS = 20
 
     N_SAMPLES = 300
 
@@ -576,17 +609,19 @@ if __name__ == "__main__":
         test_set_size=TEST_SET_SIZE,
     )
 
-    for experiment in tqdm(range(N_EXPERIMENTS)):
-        simulation.generate_dataset(
-            n_concepts=N_CONCEPTS,
-            concept_size=CONCEPT_SIZE,
-            last_concept_size=LAST_CONCEPT_SIZE,
-        )
+    for a, g in itertools.product(alphas, gammas):
 
-        # simulation.store_concepts(experiment)
+        for experiment in tqdm(range(N_EXPERIMENTS)):
+            simulation.generate_dataset(
+                n_concepts=N_CONCEPTS,
+                concept_size=CONCEPT_SIZE,
+                last_concept_size=LAST_CONCEPT_SIZE,
+            )
 
-        simulation.run()
+            # simulation.store_concepts(experiment)
 
-        simulation.store_results(experiment)
+            simulation.run(a, g)
 
-        simulation.soft_reset()
+            simulation.store_results(experiment)
+
+            simulation.soft_reset()
