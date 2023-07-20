@@ -51,7 +51,7 @@ class Simulation:
 
         self.p_y_given_x = {}
 
-    def run(self, alpha, gamma):
+    def run(self):
         raise NotImplementedError
 
     def store_concepts(self, experiment_index):

@@ -79,8 +79,6 @@ class SynthClassificationSimulationV2(Simulation):
             name, generator, strategies, results_dir, n_samples, estimator_type
         )
 
-        self.gamma = None
-        self.alpha = None
         self.clairvoyant_final_accuracy = None
         self.current_concept_extended = None
         self.test_set_size = test_set_size
@@ -320,9 +318,10 @@ class SynthClassificationSimulationV2(Simulation):
             "means_per_concept": mean_values,
             "covs_per_concept": covariance_matrices,
             "n_classes": N_CLASSES,
+            "test_set_size": self.test_set_size,
         }
 
-    def run(self, alpha, gamma):
+    def run(self):
         """
         iw_handler = IWHandler(
             concept_mapping=self.concept_mapping,
@@ -339,8 +338,6 @@ class SynthClassificationSimulationV2(Simulation):
 
         iw_handler.soft_reset()
         """
-        self.alpha = alpha
-        self.gamma = gamma
 
         scaler = preprocessing.StandardScaler()
 
@@ -455,7 +452,8 @@ class SynthClassificationSimulationV2(Simulation):
                 )
 
     def store_results(self, experiment_index):
-        concepts_path = Path(self.simulation_results_dir + "alpha:" + str(self.alpha) + "-" + "gamma:" + str(self.gamma) + "/" + str(experiment_index))
+        simulation_results_dir = self.simulation_results_dir
+        concepts_path = Path(simulation_results_dir + "/" + str(experiment_index))
         concepts_path.mkdir(parents=True, exist_ok=True)
 
         # Save concepts
@@ -465,13 +463,13 @@ class SynthClassificationSimulationV2(Simulation):
 
         # Save test set
         test_set_path = Path(
-            self.simulation_results_dir + "/" + str(experiment_index) + "/test_set.csv"
+            simulation_results_dir + "/" + str(experiment_index) + "/test_set.csv"
         )
         self.test_set.generated_dataset.to_csv(test_set_path, index=False)
 
         # Save pre-AL accuracy
         pre_AL_accuracy_path = Path(
-            self.simulation_results_dir
+            simulation_results_dir
             + "/"
             + str(experiment_index)
             + "/pre_AL_accuracy.csv"
@@ -483,7 +481,7 @@ class SynthClassificationSimulationV2(Simulation):
 
         # Save Clairvoyant final accuracy
         clairvoyant_final_accuracy_path = Path(
-            self.simulation_results_dir
+            simulation_results_dir
             + "/"
             + str(experiment_index)
             + "/clairvoyant_final_accuracy.csv"
@@ -496,7 +494,7 @@ class SynthClassificationSimulationV2(Simulation):
         # Save AL accuracy
         for key, item in self.AL_accuracy.items():
             AL_accuracy_path = Path(
-                self.simulation_results_dir
+                simulation_results_dir
                 + "/"
                 + str(experiment_index)
                 + "/"
@@ -514,7 +512,7 @@ class SynthClassificationSimulationV2(Simulation):
         columns = self.concepts[0].generated_dataset.columns
         for strategy_name, samples in self.selected_samples_per_strategy.items():
             selected_samples_path = Path(
-                self.simulation_results_dir
+                simulation_results_dir
                 + "/"
                 + str(experiment_index)
                 + "/"
@@ -529,7 +527,7 @@ class SynthClassificationSimulationV2(Simulation):
         # Save clairvoyant accuracy
         for key, item in self.clairvoyant_accuracy.items():
             clairvoyant_accuracy_path = Path(
-                self.simulation_results_dir
+                simulation_results_dir
                 + "/"
                 + str(experiment_index)
                 + "/"
@@ -547,7 +545,7 @@ class SynthClassificationSimulationV2(Simulation):
         # save weights
         if self.weights is not None:
             weights_path = Path(
-                self.simulation_results_dir
+                simulation_results_dir
                 + "/"
                 + str(experiment_index)
                 + "/weights.csv"
@@ -556,7 +554,7 @@ class SynthClassificationSimulationV2(Simulation):
 
         # save generation metadata
         metadata_file = (
-                self.simulation_results_dir + "/" + str(experiment_index) + "/metadata.json"
+                simulation_results_dir + "/" + str(experiment_index) + "/metadata.json"
         )
         with open(metadata_file, "w") as metadata_file:
             json.dump(self.metadata, metadata_file)
@@ -579,11 +577,9 @@ class SynthClassificationSimulationV2(Simulation):
 
 
 if __name__ == "__main__":
-    alphas = np.linspace(0.1, 1.0, 10)
-    gammas = np.linspace(0.1, 1.0, 10)
     N_EXPERIMENTS = 20
 
-    N_SAMPLES = 300
+    N_SAMPLES = 100
 
     N_FEATURES = 2
     N_CLASSES = 10
@@ -609,19 +605,17 @@ if __name__ == "__main__":
         test_set_size=TEST_SET_SIZE,
     )
 
-    for a, g in itertools.product(alphas, gammas):
+    for experiment in tqdm(range(N_EXPERIMENTS)):
+        simulation.generate_dataset(
+            n_concepts=N_CONCEPTS,
+            concept_size=CONCEPT_SIZE,
+            last_concept_size=LAST_CONCEPT_SIZE,
+        )
 
-        for experiment in tqdm(range(N_EXPERIMENTS)):
-            simulation.generate_dataset(
-                n_concepts=N_CONCEPTS,
-                concept_size=CONCEPT_SIZE,
-                last_concept_size=LAST_CONCEPT_SIZE,
-            )
+        # simulation.store_concepts(experiment)
 
-            # simulation.store_concepts(experiment)
+        simulation.run()
 
-            simulation.run(a, g)
+        simulation.store_results(experiment)
 
-            simulation.store_results(experiment)
-
-            simulation.soft_reset()
+        simulation.soft_reset()

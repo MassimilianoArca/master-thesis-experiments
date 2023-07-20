@@ -69,7 +69,7 @@ class WeightingHandler:
             #     X_filtered_past, X_filtered_current
             # )
 
-            rbf_matrix = pairwise.rbf_kernel(X_filtered_past, X_filtered_current, gamma=0.9)
+            rbf_matrix = pairwise.rbf_kernel(X_filtered_past, X_filtered_current, gamma=0.4)
 
             # convert euclidean distances to similarity
             # similarity_matrix = 1 / (1 + euclidian_matrix)

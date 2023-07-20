@@ -92,14 +92,19 @@ class WeightedSamplingStrategy(BaseStrategy):
 
         # combine entropy with distance from already selected samples
         if self.all_selected_samples:
-            alpha = 0.4
+            alpha = 0.8
 
             all_selected_samples = pd.DataFrame(self.all_selected_samples)
             all_selected_samples = all_selected_samples[all_selected_samples.columns[:-1]]
 
             # rbf kernel: close points have score close to 1,
-            # so I subtract 1 to have close points with score close to 0
-            distance_matrix = 1 - pd.DataFrame(pairwise.rbf_kernel(X=X, Y=all_selected_samples, gamma=0.1))
+            # so I subtract 1 to have close points with score close to 0.
+            #
+            # gamma: if high, only close together points will have a significant influence on each other,
+            # while if low, points far away from each other will also have an influence on each other,
+            # resulting in a smoother decision boundary.
+            # so gamma scales the amount of influence two points have on each other.
+            distance_matrix = 1 - pd.DataFrame(pairwise.rbf_kernel(X=X, Y=all_selected_samples, gamma=0.4))
 
             # normalizzare entropia e provare la media o min
             distance_vector = distance_matrix.min(axis=1)
