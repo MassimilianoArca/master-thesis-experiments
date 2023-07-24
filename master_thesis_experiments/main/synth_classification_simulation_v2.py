@@ -89,6 +89,9 @@ class SynthClassificationSimulationV2(Simulation):
         self.clairvoyant_accuracy = {}
         self.pre_AL_accuracy = None
         self.weights = None
+        self.gamma = None
+        self.alpha = None
+        self.gamma_handler = None
 
     def generate_dataset(self, n_concepts, concept_size, last_concept_size):
         """
@@ -255,7 +258,6 @@ class SynthClassificationSimulationV2(Simulation):
         for i in range(n_concepts):
 
             for class_ in range(self.generator.n_classes):
-
                 self.generator.mean_values[class_] = mean_values[i][class_]
                 self.generator.covariance_matrices[class_] = covariance_matrices[i][class_]
 
@@ -321,7 +323,7 @@ class SynthClassificationSimulationV2(Simulation):
             "test_set_size": self.test_set_size,
         }
 
-    def run(self):
+    def run(self,gamma_handler, alpha, gamma):
         """
         iw_handler = IWHandler(
             concept_mapping=self.concept_mapping,
@@ -338,6 +340,10 @@ class SynthClassificationSimulationV2(Simulation):
 
         iw_handler.soft_reset()
         """
+
+        self.alpha = alpha
+        self.gamma = gamma
+        self.gamma_handler= gamma_handler
 
         scaler = preprocessing.StandardScaler()
 
@@ -395,7 +401,9 @@ class SynthClassificationSimulationV2(Simulation):
 
             n_samples -= 1
 
-        current_concept = pd.concat((deepcopy(self.concepts[-1].generated_dataset), self.current_concept_extended.generated_dataset), ignore_index=True)
+        current_concept = pd.concat(
+            (deepcopy(self.concepts[-1].generated_dataset), self.current_concept_extended.generated_dataset),
+            ignore_index=True)
 
         data = current_concept.values
         X = data[:, :-1]
@@ -412,13 +420,26 @@ class SynthClassificationSimulationV2(Simulation):
 
         # AL strategy
         for strategy in self.strategies:
-            strategy_instance: BaseStrategy = strategy(
-                concept_mapping=deepcopy(self.concept_mapping),
-                concept_list=deepcopy(self.concepts),
-                n_samples=self.n_samples,
-                estimator_type=self.estimator_type,
-                prior_probs=deepcopy(self.prior_probs_per_concept[0]),
-            )
+            if strategy.__name__ == 'WeightedSamplingStrategy':
+                strategy_instance: WeightedSamplingStrategy = strategy(
+                    concept_mapping=deepcopy(self.concept_mapping),
+                    concept_list=deepcopy(self.concepts),
+                    n_samples=self.n_samples,
+                    estimator_type=self.estimator_type,
+                    prior_probs=deepcopy(self.prior_probs_per_concept[0]),
+                    gamma_handler=gamma_handler,
+                    alpha=alpha,
+                    gamma=gamma
+                )
+
+            else:
+                strategy_instance: BaseStrategy = strategy(
+                    concept_mapping=deepcopy(self.concept_mapping),
+                    concept_list=deepcopy(self.concepts),
+                    n_samples=self.n_samples,
+                    estimator_type=self.estimator_type,
+                    prior_probs=deepcopy(self.prior_probs_per_concept[0]),
+                )
             self.strategy_instances.append(strategy_instance)
 
             strategy_instance.initialize()
@@ -426,7 +447,6 @@ class SynthClassificationSimulationV2(Simulation):
             n_samples = self.n_samples
 
             while n_samples > 0:
-
                 X_new, y_new = strategy_instance.run()
                 classifier.fit(X=X_new, y=y_new)
 
@@ -452,7 +472,8 @@ class SynthClassificationSimulationV2(Simulation):
                 )
 
     def store_results(self, experiment_index):
-        simulation_results_dir = self.simulation_results_dir
+        simulation_results_dir = self.simulation_results_dir + "_gamma_handler:" + str(self.gamma_handler) + "-" + "alpha:" + str(self.alpha) + "-" + "gamma:" + str(
+            self.gamma)
         concepts_path = Path(simulation_results_dir + "/" + str(experiment_index))
         concepts_path.mkdir(parents=True, exist_ok=True)
 
@@ -579,7 +600,7 @@ class SynthClassificationSimulationV2(Simulation):
 if __name__ == "__main__":
     N_EXPERIMENTS = 20
 
-    N_SAMPLES = 100
+    N_SAMPLES = 200
 
     N_FEATURES = 2
     N_CLASSES = 10
@@ -589,6 +610,10 @@ if __name__ == "__main__":
     LAST_CONCEPT_SIZE = 13
 
     TEST_SET_SIZE = 300
+
+    alphas = [0.1, 0.2, 0.3, 0.4, 0.5]
+    gammas = [0.1, 0.2, 0.3, 0.4, 0.5]
+    gamma_handler = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
     simulation = SynthClassificationSimulationV2(
         name="synth_classification_fixed_dataset_and_samples_v2",
@@ -605,17 +630,19 @@ if __name__ == "__main__":
         test_set_size=TEST_SET_SIZE,
     )
 
-    for experiment in tqdm(range(N_EXPERIMENTS)):
-        simulation.generate_dataset(
-            n_concepts=N_CONCEPTS,
-            concept_size=CONCEPT_SIZE,
-            last_concept_size=LAST_CONCEPT_SIZE,
-        )
+    for g_h, a, g in itertools.product(gamma_handler, alphas, gammas):
 
-        # simulation.store_concepts(experiment)
+        for experiment in tqdm(range(N_EXPERIMENTS)):
+            simulation.generate_dataset(
+                n_concepts=N_CONCEPTS,
+                concept_size=CONCEPT_SIZE,
+                last_concept_size=LAST_CONCEPT_SIZE,
+            )
 
-        simulation.run()
+            # simulation.store_concepts(experiment)
 
-        simulation.store_results(experiment)
+            simulation.run(g_h, a, g)
 
-        simulation.soft_reset()
+            simulation.store_results(experiment)
+
+            simulation.soft_reset()

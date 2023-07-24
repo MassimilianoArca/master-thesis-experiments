@@ -20,7 +20,7 @@ def euclidean_to_similarity(distance_matrix, sigma):
 
 class WeightingHandler:
     def __init__(
-        self, concept_list, n_samples, scaling_factor=1, similarity_measure="euclidean"
+        self, concept_list, n_samples, gamma, scaling_factor=1, similarity_measure="euclidean"
     ):
         self.past_concepts = concept_list[:-1]
         self.current_concept = concept_list[-1]
@@ -33,6 +33,7 @@ class WeightingHandler:
         self.weights = None
         self.classes = None
         self.similarities = None
+        self.gamma = gamma
 
     def initialize(self):
         dataset = pd.DataFrame()
@@ -69,7 +70,7 @@ class WeightingHandler:
             #     X_filtered_past, X_filtered_current
             # )
 
-            rbf_matrix = pairwise.rbf_kernel(X_filtered_past, X_filtered_current, gamma=0.4)
+            rbf_matrix = pairwise.rbf_kernel(X_filtered_past, X_filtered_current, gamma=self.gamma)
 
             # convert euclidean distances to similarity
             # similarity_matrix = 1 / (1 + euclidian_matrix)
@@ -121,7 +122,7 @@ class WeightingHandler:
         # euclidean_vector = pairwise.euclidean_distances(
         #     X_filtered_past, sample_features.reshape(1, -1)
         # )
-        rbf_vector = pairwise.rbf_kernel(X_filtered_past, sample_features.reshape(1, -1), gamma=0.9)
+        rbf_vector = pairwise.rbf_kernel(X_filtered_past, sample_features.reshape(1, -1), gamma=self.gamma)
 
         # similarity_vector = 1 / (1 + euclidean_vector)
         similarity_vector = 1 - rbf_vector

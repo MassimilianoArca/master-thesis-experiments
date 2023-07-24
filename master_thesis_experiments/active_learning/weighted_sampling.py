@@ -25,6 +25,9 @@ class WeightedSamplingStrategy(BaseStrategy):
             concept_list,
             n_samples,
             prior_probs,
+            gamma_handler,
+            alpha,
+            gamma,
             estimator_type: DensityEstimator(),
     ):
         super().__init__(concept_mapping, concept_list, n_samples, prior_probs, estimator_type)
@@ -35,9 +38,14 @@ class WeightedSamplingStrategy(BaseStrategy):
             n_samples,
             scaling_factor=1,
             similarity_measure="euclidean",
+            gamma=gamma_handler
         )
         self.weighting_handler.initialize()
         self.weights = None
+        self.initial_random_prob = 1.0
+        self.decay_rate = 0.03
+        self.alpha = alpha
+        self.gamma = gamma
 
     def initialize(self):
         if self.past_dataset is None:
@@ -79,58 +87,81 @@ class WeightedSamplingStrategy(BaseStrategy):
         self.iteration += 1
         logger.debug(f"Selecting sample #{self.iteration}...")
 
-        X, _ = self.past_dataset.get_split_dataset()
+        # at the beginning, select samples randomly. As the number of iterations increases,
+        # the probability of selecting a sample randomly decreases and the selection will be
+        # based on the entropy of the samples.
+        random_sampling_prob = self.initial_random_prob * np.exp(-self.decay_rate * self.iteration)
+        if np.random.rand() < random_sampling_prob:
+            logger.debug("Random sampling...")
+            selected_sample_index = np.random.choice(self.past_dataset.get_dataset().index.tolist())
+            sample = (
+                self.past_dataset.get_data_from_ids(selected_sample_index)
+                .to_numpy()
+                .ravel()
+            )
+            self.selected_sample = sample
 
-        probabilities = self.model.predict_proba(X)
-        entropies = pd.DataFrame(entropy(probabilities.T), columns=['entropy'])
-        max_entropy = np.ones(len(self.classes)) * (1 / len(self.classes))
-        entropies['entropy'] = entropies['entropy'] / entropy(max_entropy)
+            # spostarlo alla fine per salvare i sample
+            # relabelati e vedere quanti sono poi in evaluation
+            self.all_selected_samples.append(self.selected_sample.tolist())
+            self.relabel_samples()
+            self.past_dataset.delete_sample(selected_sample_index)
+            self.current_concept.add_samples([self.selected_sample.T])
 
-        indexes = self.past_dataset.get_dataset().index.tolist()
+            return selected_sample_index
+        else:
+            X, _ = self.past_dataset.get_split_dataset()
 
-        score = entropies
+            probabilities = self.model.predict_proba(X)
+            entropies = pd.DataFrame(entropy(probabilities.T), columns=['entropy'])
+            max_entropy = np.ones(len(self.classes)) * (1 / len(self.classes))
+            entropies['entropy'] = entropies['entropy'] / entropy(max_entropy)
 
-        # combine entropy with distance from already selected samples
-        if self.all_selected_samples:
-            alpha = 0.8
+            indexes = self.past_dataset.get_dataset().index.tolist()
 
-            all_selected_samples = pd.DataFrame(self.all_selected_samples)
-            all_selected_samples = all_selected_samples[all_selected_samples.columns[:-1]]
+            score = entropies
 
-            # rbf kernel: close points have score close to 1,
-            # so I subtract 1 to have close points with score close to 0.
-            #
-            # gamma: if high, only close together points will have a significant influence on each other,
-            # while if low, points far away from each other will also have an influence on each other,
-            # resulting in a smoother decision boundary.
-            # so gamma scales the amount of influence two points have on each other.
-            distance_matrix = 1 - pd.DataFrame(pairwise.rbf_kernel(X=X, Y=all_selected_samples, gamma=0.4))
+            # combine entropy with distance from already selected samples
+            if self.all_selected_samples:
+                alpha = self.alpha
 
-            # normalizzare entropia e provare la media o min
-            distance_vector = distance_matrix.min(axis=1)
+                all_selected_samples = pd.DataFrame(self.all_selected_samples)
+                all_selected_samples = all_selected_samples[all_selected_samples.columns[:-1]]
 
-            score = alpha * entropies['entropy'] + (1 - alpha) * distance_vector
-            score = score.to_frame()
+                # rbf kernel: close points have score close to 1,
+                # so I subtract 1 to have close points with score close to 0.
+                #
+                # gamma: if high, only close together points will have a significant influence on each other,
+                # while if low, points far away from each other will also have an influence on each other,
+                # resulting in a smoother decision boundary.
+                # so gamma scales the amount of influence two points have on each other.
+                distance_matrix = 1 - pd.DataFrame(pairwise.rbf_kernel(X=X, Y=all_selected_samples, gamma=self.gamma))
 
-        score.set_index(pd.Index(indexes), inplace=True)
-        selected_sample_index = score.idxmax(axis=0)
-        selected_sample_index = selected_sample_index.tolist()[0]
+                # normalizzare entropia e provare la media o min
+                distance_vector = distance_matrix.min(axis=1)
 
-        sample = (
-            self.past_dataset.get_data_from_ids(selected_sample_index)
-            .to_numpy()
-            .ravel()
-        )
-        self.selected_sample = sample
+                score = alpha * entropies['entropy'] + (1 - alpha) * distance_vector
+                score = score.to_frame()
 
-        # spostarlo alla fine per salvare i sample
-        # relabelati e vedere quanti sono poi in evaluation
-        self.all_selected_samples.append(self.selected_sample.tolist())
-        self.relabel_samples()
-        self.past_dataset.delete_sample(selected_sample_index)
-        self.current_concept.add_samples([self.selected_sample.T])
+            score.set_index(pd.Index(indexes), inplace=True)
+            selected_sample_index = score.idxmax(axis=0)
+            selected_sample_index = selected_sample_index.tolist()[0]
 
-        return selected_sample_index
+            sample = (
+                self.past_dataset.get_data_from_ids(selected_sample_index)
+                .to_numpy()
+                .ravel()
+            )
+            self.selected_sample = sample
+
+            # spostarlo alla fine per salvare i sample
+            # relabelati e vedere quanti sono poi in evaluation
+            self.all_selected_samples.append(self.selected_sample.tolist())
+            self.relabel_samples()
+            self.past_dataset.delete_sample(selected_sample_index)
+            self.current_concept.add_samples([self.selected_sample.T])
+
+            return selected_sample_index
 
     def run(self):
         self.train_model()
