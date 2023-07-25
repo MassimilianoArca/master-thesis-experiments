@@ -10,6 +10,7 @@ from scipy.stats import multivariate_normal
 from sklearn import preprocessing
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.naive_bayes import GaussianNB
 from tqdm import tqdm
 
 from master_thesis_experiments.active_learning.base import BaseStrategy
@@ -347,9 +348,7 @@ class SynthClassificationSimulationV2(Simulation):
 
         scaler = preprocessing.StandardScaler()
 
-        classifier = LogisticRegression(
-            multi_class="multinomial", solver="sag", random_state=42
-        )
+        classifier = GaussianNB()
 
         current_concept = deepcopy(self.concepts[-1].generated_dataset)
 
@@ -611,9 +610,9 @@ if __name__ == "__main__":
 
     TEST_SET_SIZE = 300
 
-    alphas = [0.1, 0.2, 0.3, 0.4, 0.5]
+    alphas = [0.4, 0.5]
     gammas = [0.1, 0.2, 0.3, 0.4, 0.5]
-    gamma_handler = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    gamma_handler = [0.8]
 
     simulation = SynthClassificationSimulationV2(
         name="synth_classification_fixed_dataset_and_samples_v2",
