@@ -19,6 +19,7 @@ class BaseStrategy:
         n_samples,
         prior_probs,
         estimator_type: DensityEstimator(),
+        estimator_dataset: Optional[DataProvider] = None,
     ):
         self.concept_mapping = concept_mapping
         self.concept_list = concept_list
@@ -28,6 +29,7 @@ class BaseStrategy:
 
         self.past_concepts = concept_list[:-1]
         self.current_concept = concept_list[-1]
+        self.estimator_dataset = estimator_dataset
         self.selected_sample = None
         self.all_selected_samples = []
         self.estimators = {}

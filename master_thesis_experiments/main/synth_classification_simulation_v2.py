@@ -21,7 +21,7 @@ from master_thesis_experiments.active_learning.weighted_sampling import (
     WeightedSamplingStrategy,
 )
 from master_thesis_experiments.adaptation.density_estimation import (
-    MultivariateNormalEstimator,
+    MultivariateNormalEstimator, KernelDensityEstimator,
 )
 from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
 from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import (
@@ -75,6 +75,7 @@ class SynthClassificationSimulationV2(Simulation):
             n_samples,
             estimator_type,
             test_set_size,
+            dataset_type,
     ):
         super().__init__(
             name, generator, strategies, results_dir, n_samples, estimator_type
@@ -83,6 +84,7 @@ class SynthClassificationSimulationV2(Simulation):
         self.clairvoyant_final_accuracy = None
         self.current_concept_extended = None
         self.test_set_size = test_set_size
+        self.dataset_type = dataset_type
         self.mean_values = []
         self.cov_values = []
 
@@ -93,238 +95,264 @@ class SynthClassificationSimulationV2(Simulation):
         self.gamma = None
         self.alpha = None
         self.gamma_handler = None
+        self.estimator_dataset = None
 
     def generate_dataset(self, n_concepts, concept_size, last_concept_size):
         """
         This method generates the dataset
         """
-        logger.debug("Generating the dataset...")
+        if self.dataset_type == "generated":
+            logger.debug("Generating the dataset...")
 
-        n = self.generator.size
-        triangular_size = int(n * (n + 1) / 2)
+            n = self.generator.size
+            triangular_size = int(n * (n + 1) / 2)
 
-        theta_values = [np.pi, np.pi / 2, np.pi / 4, 3 * np.pi / 4]
+            theta_values = [np.pi, np.pi / 2, np.pi / 4, 3 * np.pi / 4]
 
-        self.mean_values = generate_mean_values(
-            min_distance=4,
-            n_features=self.generator.size,
-            n_classes=self.generator.n_classes,
-        )
+            self.mean_values = generate_mean_values(
+                min_distance=4,
+                n_features=self.generator.size,
+                n_classes=self.generator.n_classes,
+            )
 
-        self.cov_values = [
-            np.random.uniform(4, 7, triangular_size)
-            for _ in range(self.generator.n_classes)
-        ]
+            self.cov_values = [
+                np.random.uniform(4, 7, triangular_size)
+                for _ in range(self.generator.n_classes)
+            ]
 
-        self.generator.mean_values = self.mean_values
-        self.generator.cov_values = self.cov_values
+            self.generator.mean_values = self.mean_values
+            self.generator.cov_values = self.cov_values
 
-        alpha = 2
-        # the higher the alpha, the more balanced the prior probabilities
-        self.generator.prior_probs = np.random.dirichlet(
-            alpha * np.ones(self.generator.n_classes)
-        )
+            alpha = 2
+            # the higher the alpha, the more balanced the prior probabilities
+            self.generator.prior_probs = np.random.dirichlet(
+                alpha * np.ones(self.generator.n_classes)
+            )
 
-        # generate a set of perturbations for each class, where the set size is
-        # equal to the number of concepts. Some classes will have a small perturbation, while
-        # others will have a large perturbation.
-        # A perturbation can consist of adding noise to the
-        # means or to the cov matrices of the classes or to rotate the cov matrices, or
-        # a combination of these.
+            # generate a set of perturbations for each class, where the set size is
+            # equal to the number of concepts. Some classes will have a small perturbation, while
+            # others will have a large perturbation.
+            # A perturbation can consist of adding noise to the
+            # means or to the cov matrices of the classes or to rotate the cov matrices, or
+            # a combination of these.
 
-        perturbations = []
+            perturbations = []
 
-        valid_means = False
+            valid_means = False
 
-        mean_values = None
-        covariance_matrices = None
+            mean_values = None
+            covariance_matrices = None
 
-        while valid_means is not True:
+            while valid_means is not True:
 
-            mean_values = {}
-            covariance_matrices = {}
+                mean_values = {}
+                covariance_matrices = {}
 
-            for class_index in range(self.generator.n_classes):
-                perturbations.append([])
+                for class_index in range(self.generator.n_classes):
+                    perturbations.append([])
 
-                class_perturbation_type = np.random.choice(PERTURBATION_TYPE, size=1)[0]
-                class_perturbation_intensity = np.random.choice(
-                    PERTURBATION_INTENSITY, size=1
-                )[0]
+                    class_perturbation_type = np.random.choice(PERTURBATION_TYPE, size=1)[0]
+                    class_perturbation_intensity = np.random.choice(
+                        PERTURBATION_INTENSITY, size=1
+                    )[0]
 
-                for _ in range(4):
-                    perturbation = {}
+                    for _ in range(4):
+                        perturbation = {}
 
-                    if (
-                            class_perturbation_type == "mean"
-                            and class_perturbation_intensity == "small"
-                    ):
-                        perturbation["type"] = "mean"
-                        perturbation["mean"] = np.random.normal(
-                            scale=1, size=self.generator.size
-                        )
+                        if (
+                                class_perturbation_type == "mean"
+                                and class_perturbation_intensity == "small"
+                        ):
+                            perturbation["type"] = "mean"
+                            perturbation["mean"] = np.random.normal(
+                                scale=1, size=self.generator.size
+                            )
 
-                        cov_noise = np.random.uniform(-1, 1, triangular_size)
+                            cov_noise = np.random.uniform(-1, 1, triangular_size)
 
-                        perturbation['cov'] = cov_noise
+                            perturbation['cov'] = cov_noise
 
-                    elif (
-                            class_perturbation_type == "mean"
-                            and class_perturbation_intensity == "large"
-                    ):
-                        perturbation["type"] = "mean"
-                        perturbation["mean"] = np.random.normal(
-                            scale=5, size=self.generator.size
-                        )
+                        elif (
+                                class_perturbation_type == "mean"
+                                and class_perturbation_intensity == "large"
+                        ):
+                            perturbation["type"] = "mean"
+                            perturbation["mean"] = np.random.normal(
+                                scale=5, size=self.generator.size
+                            )
 
-                        cov_noise = np.random.uniform(-1, 1, triangular_size)
-                        perturbation["cov"] = cov_noise
+                            cov_noise = np.random.uniform(-1, 1, triangular_size)
+                            perturbation["cov"] = cov_noise
 
-                    elif (
-                            class_perturbation_type == "combination"
-                            and class_perturbation_intensity == "small"
-                    ):
-                        perturbation["type"] = "combination"
-                        perturbation["mean"] = np.random.normal(
-                            scale=1, size=self.generator.size
-                        )
+                        elif (
+                                class_perturbation_type == "combination"
+                                and class_perturbation_intensity == "small"
+                        ):
+                            perturbation["type"] = "combination"
+                            perturbation["mean"] = np.random.normal(
+                                scale=1, size=self.generator.size
+                            )
 
-                        cov_noise = np.random.uniform(-2, 2, triangular_size)
+                            cov_noise = np.random.uniform(-2, 2, triangular_size)
 
-                        perturbation["cov"] = cov_noise
-                        perturbation["theta"] = np.random.choice(theta_values, size=1)
+                            perturbation["cov"] = cov_noise
+                            perturbation["theta"] = np.random.choice(theta_values, size=1)
 
-                    else:
-                        perturbation["type"] = "combination"
-                        perturbation["mean"] = np.random.normal(
-                            scale=5, size=self.generator.size
-                        )
+                        else:
+                            perturbation["type"] = "combination"
+                            perturbation["mean"] = np.random.normal(
+                                scale=5, size=self.generator.size
+                            )
 
-                        cov_noise = np.random.uniform(-5, 5, triangular_size)
+                            cov_noise = np.random.uniform(-5, 5, triangular_size)
 
-                        perturbation["cov"] = cov_noise
-                        perturbation["theta"] = np.random.choice(theta_values, size=1)
+                            perturbation["cov"] = cov_noise
+                            perturbation["theta"] = np.random.choice(theta_values, size=1)
 
-                    perturbations[class_index].append(perturbation)
+                        perturbations[class_index].append(perturbation)
+
+                for i in range(n_concepts):
+
+                    mean_values[i] = {}
+                    covariance_matrices[i] = {}
+
+                    self.concept_mapping["concept_" + str(i)] = {}
+
+                    for class_ in range(self.generator.n_classes):
+
+                        concept_perturbation = np.random.choice(perturbations[class_])
+
+                        if concept_perturbation["type"] == "mean":
+
+                            self.generator.mean_values[class_] = (
+                                    self.mean_values[class_] + concept_perturbation["mean"]
+                            )
+
+                            self.generator.cov_values[class_] = (
+                                    self.cov_values[class_] + concept_perturbation["cov"]
+                            )
+
+                            mean_values[i][class_] = (
+                                    self.mean_values[class_] + concept_perturbation["mean"]
+                            )
+                            covariance_matrices[i][class_] = self.generator.covariance_matrices[class_]
+
+                        else:
+
+                            self.generator.mean_values[class_] = (
+                                    self.mean_values[class_] + concept_perturbation["mean"]
+                            )
+                            self.generator.cov_values[class_] = (
+                                    self.cov_values[class_] + concept_perturbation["cov"]
+                            )
+
+                            dims = np.random.choice(
+                                list(range(self.generator.size)), size=2, replace=False
+                            )
+                            self.generator.rotate(
+                                dims[0], dims[1], concept_perturbation["theta"], class_
+                            )
+
+                            mean_values[i][class_] = (
+                                    self.mean_values[class_] + concept_perturbation["mean"]
+                            )
+                            covariance_matrices[i][class_] = self.generator.covariance_matrices[class_]
+
+                valid_means = check_means_distances(mean_values, min_distance=4)
 
             for i in range(n_concepts):
 
-                mean_values[i] = {}
-                covariance_matrices[i] = {}
-
-                self.concept_mapping["concept_" + str(i)] = {}
-
                 for class_ in range(self.generator.n_classes):
+                    self.generator.mean_values[class_] = mean_values[i][class_]
+                    self.generator.covariance_matrices[class_] = covariance_matrices[i][class_]
 
-                    concept_perturbation = np.random.choice(perturbations[class_])
-
-                    if concept_perturbation["type"] == "mean":
-
-                        self.generator.mean_values[class_] = (
-                                self.mean_values[class_] + concept_perturbation["mean"]
-                        )
-
-                        self.generator.cov_values[class_] = (
-                                self.cov_values[class_] + concept_perturbation["cov"]
-                        )
-
-                        mean_values[i][class_] = (
-                                self.mean_values[class_] + concept_perturbation["mean"]
-                        )
-                        covariance_matrices[i][class_] = self.generator.covariance_matrices[class_]
-
-                    else:
-
-                        self.generator.mean_values[class_] = (
-                                self.mean_values[class_] + concept_perturbation["mean"]
-                        )
-                        self.generator.cov_values[class_] = (
-                                self.cov_values[class_] + concept_perturbation["cov"]
-                        )
-
-                        dims = np.random.choice(
-                            list(range(self.generator.size)), size=2, replace=False
-                        )
-                        self.generator.rotate(
-                            dims[0], dims[1], concept_perturbation["theta"], class_
-                        )
-
-                        mean_values[i][class_] = (
-                                self.mean_values[class_] + concept_perturbation["mean"]
-                        )
-                        covariance_matrices[i][class_] = self.generator.covariance_matrices[class_]
-
-            valid_means = check_means_distances(mean_values, min_distance=4)
-
-        for i in range(n_concepts):
-
-            for class_ in range(self.generator.n_classes):
-                self.generator.mean_values[class_] = mean_values[i][class_]
-                self.generator.covariance_matrices[class_] = covariance_matrices[i][class_]
-
-                self.concept_mapping["concept_" + str(i)][
-                    "class_" + str(class_)
-                    ] = multivariate_normal(
-                    self.generator.mean_values[class_],
-                    self.generator.covariance_matrices[class_],
-                )
-
-                # modify means and covs types for storing
-                mean_values[i][class_] = mean_values[i][class_].tolist()
-                covariance_matrices[i][class_] = covariance_matrices[i][class_].tolist()
-
-            self.prior_probs_per_concept.append(self.generator.prior_probs.tolist())
-
-            if i != n_concepts - 1:
-                dataset = self.generator.generate(concept_size)
-                generated_classes = dataset["y_0"].unique()
-
-                while len(generated_classes) != self.generator.n_classes:
-                    logger.debug(
-                        "Regenerating dataset, some class did not generate any sample"
+                    self.concept_mapping["concept_" + str(i)][
+                        "class_" + str(class_)
+                        ] = multivariate_normal(
+                        self.generator.mean_values[class_],
+                        self.generator.covariance_matrices[class_],
                     )
+
+                    # modify means and covs types for storing
+                    mean_values[i][class_] = mean_values[i][class_].tolist()
+                    covariance_matrices[i][class_] = covariance_matrices[i][class_].tolist()
+
+                self.prior_probs_per_concept.append(self.generator.prior_probs.tolist())
+
+                if i != n_concepts - 1:
                     dataset = self.generator.generate(concept_size)
                     generated_classes = dataset["y_0"].unique()
-            else:
-                dataset = self.generator.generate(last_concept_size)
-                generated_classes = dataset["y_0"].unique()
 
-                while len(generated_classes) != self.generator.n_classes:
-                    logger.debug(
-                        "Regenerating dataset, some class did not generate any sample"
-                    )
+                    while len(generated_classes) != self.generator.n_classes:
+                        logger.debug(
+                            "Regenerating dataset, some class did not generate any sample"
+                        )
+                        dataset = self.generator.generate(concept_size)
+                        generated_classes = dataset["y_0"].unique()
+                else:
                     dataset = self.generator.generate(last_concept_size)
                     generated_classes = dataset["y_0"].unique()
 
-                if self.test_set is None:
-                    self.test_set = self.generator.generate(self.test_set_size)
-                    self.test_set = DataProvider("test_set", self.test_set)
+                    while len(generated_classes) != self.generator.n_classes:
+                        logger.debug(
+                            "Regenerating dataset, some class did not generate any sample"
+                        )
+                        dataset = self.generator.generate(last_concept_size)
+                        generated_classes = dataset["y_0"].unique()
 
-                    self.current_concept_extended = self.generator.generate(N_SAMPLES)
-                    self.current_concept_extended = DataProvider(
-                        "current_concept_extended", self.current_concept_extended
-                    )
+                    if self.test_set is None:
+                        self.test_set = self.generator.generate(self.test_set_size)
+                        self.test_set = DataProvider("test_set", self.test_set)
 
-            # scaler.fit_transform(dataset)
-            self.concepts.append(DataProvider("concept_" + str(i), dataset))
+                        self.current_concept_extended = self.generator.generate(N_SAMPLES)
+                        self.current_concept_extended = DataProvider(
+                            "current_concept_extended", self.current_concept_extended
+                        )
 
-        self.metadata = {
-            "dataset_name": self.generator.name,
-            "past_dataset_size": (n_concepts - 1) * concept_size,
-            "task": "classification",
-            "type": "synth",
-            "n_concepts": n_concepts,
-            "concept_size": concept_size,
-            "last_concept_size": last_concept_size,
-            "prior_probs_per_concept": self.prior_probs_per_concept,
-            "n_samples": self.n_samples,
-            "means_per_concept": mean_values,
-            "covs_per_concept": covariance_matrices,
-            "n_classes": N_CLASSES,
-            "test_set_size": self.test_set_size,
-        }
+                # scaler.fit_transform(dataset)
+                self.concepts.append(DataProvider("concept_" + str(i), dataset))
 
-    def run(self,gamma_handler, alpha, gamma):
+            self.metadata = {
+                "dataset_name": self.generator.name,
+                "past_dataset_size": (n_concepts - 1) * concept_size,
+                "task": "classification",
+                "type": "synth",
+                "n_concepts": n_concepts,
+                "concept_size": concept_size,
+                "last_concept_size": last_concept_size,
+                "prior_probs_per_concept": self.prior_probs_per_concept,
+                "n_samples": self.n_samples,
+                "means_per_concept": mean_values,
+                "covs_per_concept": covariance_matrices,
+                "n_classes": N_CLASSES,
+                "test_set_size": self.test_set_size,
+            }
+
+        elif self.dataset_type == "synth":
+            dataset = pd.read_csv("../datasets/synthetic/rt_2563789698568873_abrupto.csv")
+            for i in range(4):
+                self.concepts.append(DataProvider("concept_" + str(i), dataset.iloc[i*10000:(i+1)*10000, :]))
+
+            self.test_set = DataProvider(
+                name="test_set",
+                generated_dataset=self.concepts[-1].generated_dataset.iloc[LAST_CONCEPT_SIZE:TEST_SET_SIZE + LAST_CONCEPT_SIZE, :]
+            )
+            self.current_concept_extended = DataProvider(
+                name="current_concept_extended",
+                generated_dataset=self.concepts[-1].generated_dataset.iloc[LAST_CONCEPT_SIZE + TEST_SET_SIZE:, :]
+            )
+            self.estimator_dataset = DataProvider(
+                name="estimator_dataset",
+                generated_dataset=self.concepts[-1].generated_dataset
+            )
+            self.concepts[-1].generated_dataset = self.concepts[-1].generated_dataset.iloc[:LAST_CONCEPT_SIZE, :]
+
+        elif self.dataset_type == "real":
+            pass
+        else:
+            raise ValueError("dataset_type must be one of 'generated', 'synth' or 'real'")
+
+    def run(self):
         """
         iw_handler = IWHandler(
             concept_mapping=self.concept_mapping,
@@ -342,13 +370,15 @@ class SynthClassificationSimulationV2(Simulation):
         iw_handler.soft_reset()
         """
 
-        self.alpha = alpha
-        self.gamma = gamma
-        self.gamma_handler= gamma_handler
+        # self.alpha = alpha
+        # self.gamma = gamma
+        # self.gamma_handler = gamma_handler
 
         scaler = preprocessing.StandardScaler()
 
-        classifier = GaussianNB()
+        classifier = LogisticRegression(
+            multi_class="multinomial", solver="lbfgs"
+        )
 
         current_concept = deepcopy(self.concepts[-1].generated_dataset)
 
@@ -425,10 +455,11 @@ class SynthClassificationSimulationV2(Simulation):
                     concept_list=deepcopy(self.concepts),
                     n_samples=self.n_samples,
                     estimator_type=self.estimator_type,
+                    estimator_dataset=self.estimator_dataset,
                     prior_probs=deepcopy(self.prior_probs_per_concept[0]),
-                    gamma_handler=gamma_handler,
-                    alpha=alpha,
-                    gamma=gamma
+                    #gamma_handler=gamma_handler,
+                    # alpha=alpha,
+                    # gamma=gamma
                 )
 
             else:
@@ -437,6 +468,7 @@ class SynthClassificationSimulationV2(Simulation):
                     concept_list=deepcopy(self.concepts),
                     n_samples=self.n_samples,
                     estimator_type=self.estimator_type,
+                    estimator_dataset=self.estimator_dataset,
                     prior_probs=deepcopy(self.prior_probs_per_concept[0]),
                 )
             self.strategy_instances.append(strategy_instance)
@@ -471,8 +503,9 @@ class SynthClassificationSimulationV2(Simulation):
                 )
 
     def store_results(self, experiment_index):
-        simulation_results_dir = self.simulation_results_dir + "_gamma_handler:" + str(self.gamma_handler) + "-" + "alpha:" + str(self.alpha) + "-" + "gamma:" + str(
-            self.gamma)
+        simulation_results_dir = self.simulation_results_dir
+        # simulation_results_dir = self.simulation_results_dir + "_gamma_handler:" + str(self.gamma_handler) + "-" + "alpha:" + str(self.alpha) + "-" + "gamma:" + str(
+        #     self.gamma)
         concepts_path = Path(simulation_results_dir + "/" + str(experiment_index))
         concepts_path.mkdir(parents=True, exist_ok=True)
 
@@ -602,7 +635,7 @@ if __name__ == "__main__":
     N_SAMPLES = 200
 
     N_FEATURES = 2
-    N_CLASSES = 10
+    N_CLASSES = 4
 
     N_CONCEPTS = 5
     CONCEPT_SIZE = 1000
@@ -610,9 +643,9 @@ if __name__ == "__main__":
 
     TEST_SET_SIZE = 300
 
-    alphas = [0.4, 0.5]
-    gammas = [0.1, 0.2, 0.3, 0.4, 0.5]
-    gamma_handler = [0.8]
+    alphas = [0.3]
+    gammas = [0.1]
+    gamma_handler = [0.5]
 
     simulation = SynthClassificationSimulationV2(
         name="synth_classification_fixed_dataset_and_samples_v2",
@@ -625,23 +658,24 @@ if __name__ == "__main__":
         ],
         results_dir=get_root_level_dir("results"),
         n_samples=N_SAMPLES,
-        estimator_type=MultivariateNormalEstimator,
+        estimator_type=KernelDensityEstimator,
         test_set_size=TEST_SET_SIZE,
+        dataset_type="generated",
     )
 
-    for g_h, a, g in itertools.product(gamma_handler, alphas, gammas):
+    # for g_h, a, g in itertools.product(gamma_handler, alphas, gammas):
 
-        for experiment in tqdm(range(N_EXPERIMENTS)):
-            simulation.generate_dataset(
-                n_concepts=N_CONCEPTS,
-                concept_size=CONCEPT_SIZE,
-                last_concept_size=LAST_CONCEPT_SIZE,
-            )
+    for experiment in tqdm(range(N_EXPERIMENTS)):
+        simulation.generate_dataset(
+            n_concepts=N_CONCEPTS,
+            concept_size=CONCEPT_SIZE,
+            last_concept_size=LAST_CONCEPT_SIZE,
+        )
 
-            # simulation.store_concepts(experiment)
+        # simulation.store_concepts(experiment)
 
-            simulation.run(g_h, a, g)
+        simulation.run()
 
-            simulation.store_results(experiment)
+        simulation.store_results(experiment)
 
-            simulation.soft_reset()
+        simulation.soft_reset()

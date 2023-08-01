@@ -11,16 +11,25 @@ logger = get_logger(__file__)
 
 scaler = preprocessing.StandardScaler()
 
+
 class RandomSamplingStrategyV2(BaseStrategy):
     def __init__(
-        self,
-        concept_mapping,
-        concept_list,
-        n_samples,
-        prior_probs,
-        estimator_type: DensityEstimator(),
+            self,
+            concept_mapping,
+            concept_list,
+            n_samples,
+            prior_probs,
+            estimator_type: DensityEstimator(),
+            estimator_dataset=None,
     ):
-        super().__init__(concept_mapping, concept_list, n_samples, prior_probs, estimator_type)
+        super().__init__(
+            concept_mapping=concept_mapping,
+            concept_list=concept_list,
+            n_samples=n_samples,
+            prior_probs=prior_probs,
+            estimator_type=estimator_type,
+            estimator_dataset=estimator_dataset
+        )
         self.name = "RandomSamplingV2"
 
     def initialize(self):
