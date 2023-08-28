@@ -24,6 +24,7 @@ class EntropyDiversitySamplingStrategy(BaseStrategyV3):
         concept_list,
         n_samples,
         current_concept_extended,
+        alpha,
         concept_mapping=None,
         rotation_angle=None,
     ):
@@ -41,6 +42,7 @@ class EntropyDiversitySamplingStrategy(BaseStrategyV3):
             X_current, y_current.values.ravel(), classes=self.classes.astype(float)
         )
         self.columns = self.current_concept.get_dataset().columns
+        self.alpha = alpha
 
         self.decay_rate = 0.03
         self.initial_random_prob = 1.0
@@ -69,7 +71,7 @@ class EntropyDiversitySamplingStrategy(BaseStrategyV3):
             self.all_selected_samples.append(self.selected_sample.tolist())
             self.current_concept.add_samples([self.selected_sample.T])
         else:
-            alpha = 0.2
+            alpha = self.alpha
 
             X_past, _ = self.past_dataset.get_split_dataset_v3()
             past_dataset = deepcopy(self.past_dataset.get_dataset())

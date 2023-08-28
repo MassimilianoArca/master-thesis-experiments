@@ -686,7 +686,7 @@ class SynthClassificationSimulationV3:
             "test_set_size": self.test_set_size,
         }
 
-    def run(self):
+    def run(self, alpha):
         clairvoyant = GaussianNB()
 
         current_concept = deepcopy(self.concept_list[-1].generated_dataset)
@@ -741,13 +741,24 @@ class SynthClassificationSimulationV3:
         self.clairvoyant_final_accuracy = clairvoyant.score(X_test, y_test)
 
         for strategy in self.strategies:
-            strategy_instance: BaseStrategyV3 = strategy(
-                concept_list=deepcopy(self.concept_list),
-                n_samples=self.n_queries,
-                current_concept_extended=self.current_concept_extended,
-                concept_mapping=self.concept_mapping,
-                rotation_angle=self.rotation_angle
-            )
+            if strategy.__name__ == "EntropyDiversitySamplingStrategy":
+                strategy_instance: EntropyDiversitySamplingStrategy = strategy(
+                    concept_list=deepcopy(self.concept_list),
+                    n_samples=self.n_queries,
+                    current_concept_extended=self.current_concept_extended,
+                    concept_mapping=self.concept_mapping,
+                    rotation_angle=self.rotation_angle,
+                    alpha=alpha,
+                )
+
+            else:
+                strategy_instance: BaseStrategyV3 = strategy(
+                    concept_list=deepcopy(self.concept_list),
+                    n_samples=self.n_queries,
+                    current_concept_extended=self.current_concept_extended,
+                    concept_mapping=self.concept_mapping,
+                    rotation_angle=self.rotation_angle,
+                )
 
             self.strategy_instances.append(strategy_instance)
             classifier = GaussianNB()
@@ -777,8 +788,8 @@ class SynthClassificationSimulationV3:
                 strategy_instance.name
             ] = strategy_instance.all_selected_samples
 
-    def store_results(self, experiment_index):
-        simulation_results_dir = self.simulation_results_dir
+    def store_results(self, alpha, experiment_index):
+        simulation_results_dir = self.simulation_results_dir + "/" + str(alpha)
         concepts_path = Path(simulation_results_dir + "/" + str(experiment_index))
         concepts_path.mkdir(parents=True, exist_ok=True)
 
@@ -904,12 +915,12 @@ if __name__ == "__main__":
 
     TEST_SET_SIZE = 300
 
+    alphas = np.linspace(0.1, 0.9, 9)
+
     simulation = SynthClassificationSimulationV3(
         name="synth_classification_v3",
         strategies=[
             EntropyDiversitySamplingStrategy,
-            EntropySamplingStrategy,
-            RandomSamplingStrategyV3,
         ],
         result_dir=get_root_level_dir("results"),
         n_classes=N_CLASSES,
@@ -917,18 +928,18 @@ if __name__ == "__main__":
         test_set_size=TEST_SET_SIZE,
     )
 
-    for experiment in tqdm(range(N_EXPERIMENTS)):
-        simulation.generate_dataset(
-            n_concepts=N_CONCEPTS,
-            concept_size=CONCEPT_SIZE,
-            last_concept_size=LAST_CONCEPT_SIZE,
-            dataset_type="decision_boundary",
-        )
+    for a in alphas:
 
-        # simulation.store_concepts(experiment)
+        for experiment in tqdm(range(N_EXPERIMENTS)):
+            simulation.generate_dataset(
+                n_concepts=N_CONCEPTS,
+                concept_size=CONCEPT_SIZE,
+                last_concept_size=LAST_CONCEPT_SIZE,
+                dataset_type="multivariate_normal",
+            )
 
-        simulation.run()
+            simulation.run(a)
 
-        simulation.store_results(experiment)
+            simulation.store_results(a, experiment)
 
-        simulation.soft_reset()
+            simulation.soft_reset()
