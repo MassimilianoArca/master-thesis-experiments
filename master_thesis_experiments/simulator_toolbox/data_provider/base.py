@@ -3,7 +3,10 @@ from os.path import exists
 
 import pandas as pd
 
-from master_thesis_experiments.simulator_toolbox.utils import split_dataframe_xy
+from master_thesis_experiments.simulator_toolbox.utils import (
+    split_dataframe_xy,
+    split_dataframe_xy_v3,
+)
 
 
 class DataProvider:
@@ -33,6 +36,13 @@ class DataProvider:
         return input reference
         """
         X, y = split_dataframe_xy(self.generated_dataset)
+        return X, y
+
+    def get_split_dataset_v3(self):
+        """
+        return input reference
+        """
+        X, y = split_dataframe_xy_v3(self.generated_dataset)
         return X, y
 
     def get_next(self):

@@ -14,13 +14,13 @@ scaler = preprocessing.StandardScaler()
 
 class RandomSamplingStrategyV2(BaseStrategy):
     def __init__(
-            self,
-            concept_mapping,
-            concept_list,
-            n_samples,
-            prior_probs,
-            estimator_type: DensityEstimator(),
-            estimator_dataset=None,
+        self,
+        concept_mapping,
+        concept_list,
+        n_samples,
+        prior_probs,
+        estimator_type: DensityEstimator(),
+        estimator_dataset=None,
     ):
         super().__init__(
             concept_mapping=concept_mapping,
@@ -28,7 +28,7 @@ class RandomSamplingStrategyV2(BaseStrategy):
             n_samples=n_samples,
             prior_probs=prior_probs,
             estimator_type=estimator_type,
-            estimator_dataset=estimator_dataset
+            estimator_dataset=estimator_dataset,
         )
         self.name = "RandomSamplingV2"
 
@@ -63,6 +63,7 @@ class RandomSamplingStrategyV2(BaseStrategy):
         data = current_concept.generated_dataset.values
         X = data[:, :-1]
         current_concept.generated_dataset[
-            current_concept.generated_dataset.columns[:-1]] = scaler.fit_transform(X)
+            current_concept.generated_dataset.columns[:-1]
+        ] = scaler.fit_transform(X)
 
         return current_concept.get_split_dataset()

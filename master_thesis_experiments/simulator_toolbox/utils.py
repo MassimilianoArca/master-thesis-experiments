@@ -175,6 +175,14 @@ def split_dataframe_xy(dataframe):
     return X.values, y.values.flatten()
 
 
+def split_dataframe_xy_v3(dataframe):
+    input_columns = [col for col in dataframe if col.startswith("X")]
+    X = dataframe[input_columns]
+    output_columns = [col for col in dataframe if col.startswith("y_")]
+    y = dataframe[output_columns]
+    return X, y
+
+
 def squared_error(y, y_hat):
     return (y - y_hat) ** 2
 

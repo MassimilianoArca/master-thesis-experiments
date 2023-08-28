@@ -23,7 +23,9 @@ class UncertaintySpreadingStrategy(BaseStrategy):
         prior_probs,
         estimator_type: DensityEstimator(),
     ):
-        super().__init__(concept_mapping, concept_list, n_samples, prior_probs, estimator_type)
+        super().__init__(
+            concept_mapping, concept_list, n_samples, prior_probs, estimator_type
+        )
         self.name = "UncertaintySpreading"
         self.classifiers = {}
 

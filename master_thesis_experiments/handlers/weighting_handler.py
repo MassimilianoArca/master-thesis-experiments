@@ -23,9 +23,9 @@ class WeightingHandler:
         self,
         concept_list,
         n_samples,
-        #gamma,
+        # gamma,
         scaling_factor=1,
-        similarity_measure="euclidean"
+        similarity_measure="euclidean",
     ):
         self.past_concepts = concept_list[:-1]
         self.current_concept = concept_list[-1]
@@ -38,7 +38,7 @@ class WeightingHandler:
         self.weights = None
         self.classes = None
         self.similarities = None
-        #self.gamma = gamma
+        # self.gamma = gamma
 
     def initialize(self):
         dataset = pd.DataFrame()
@@ -75,21 +75,22 @@ class WeightingHandler:
             #     X_filtered_past, X_filtered_current
             # )
 
-            rbf_matrix = pairwise.rbf_kernel(X_filtered_past, X_filtered_current, gamma=0.7)
+            rbf_matrix = pairwise.rbf_kernel(
+                X_filtered_past, X_filtered_current, gamma=0.01
+            )
 
             # convert euclidean distances to similarity
             # similarity_matrix = 1 / (1 + euclidian_matrix)
 
-            similarity_matrix = 1 - rbf_matrix
+            similarity_matrix = rbf_matrix
 
-            similarity_vector = np.sum(similarity_matrix, axis=1)
-
-            # weight update
-            self.weights["weights"].loc[X_filtered_past_indexes] = (
-                self.scaling_factor
-                * self.weights["weights"].loc[X_filtered_past_indexes]
-                * similarity_vector
-            )
+            for similarity_vector in similarity_matrix.T:
+                # weight update
+                self.weights["weights"].loc[X_filtered_past_indexes] = (
+                    self.scaling_factor
+                    * self.weights["weights"].loc[X_filtered_past_indexes]
+                    * similarity_vector
+                )
 
         # normalize weights
         total = self.weights["weights"].sum()
@@ -127,12 +128,12 @@ class WeightingHandler:
         # euclidean_vector = pairwise.euclidean_distances(
         #     X_filtered_past, sample_features.reshape(1, -1)
         # )
-        rbf_vector = pairwise.rbf_kernel(X_filtered_past, sample_features.reshape(1, -1), gamma=0.7)
+        rbf_vector = pairwise.rbf_kernel(
+            X_filtered_past, sample_features.reshape(1, -1), gamma=0.001
+        )[0]
 
         # similarity_vector = 1 / (1 + euclidean_vector)
-        similarity_vector = 1 - rbf_vector
-
-        similarity_vector = np.sum(similarity_vector, axis=1)
+        similarity_vector = rbf_vector
 
         # weight update
         self.weights["weights"].loc[X_filtered_past_indexes] = (

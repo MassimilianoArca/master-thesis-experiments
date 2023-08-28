@@ -30,6 +30,7 @@ class Simulation:
         self.concepts: List[DataProvider] = []
         self.prior_probs_per_concept = []
         self.selected_samples_per_strategy = {}
+        self.relabeled_samples_per_strategy = {}
 
         self.strategy_post_AL_weights = {}
 

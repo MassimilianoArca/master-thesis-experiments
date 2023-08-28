@@ -21,7 +21,8 @@ from master_thesis_experiments.active_learning.weighted_sampling import (
     WeightedSamplingStrategy,
 )
 from master_thesis_experiments.adaptation.density_estimation import (
-    MultivariateNormalEstimator, KernelDensityEstimator,
+    MultivariateNormalEstimator,
+    KernelDensityEstimator,
 )
 from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
 from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import (
@@ -42,7 +43,7 @@ PERTURBATION_INTENSITY = ["small", "large"]
 def generate_mean_values(min_distance, n_features, n_classes):
     mean_values = []
     while len(mean_values) < n_classes:
-        means = np.random.uniform(0, 15, n_features)
+        means = np.random.uniform(0, 4, n_features)
         too_close = False
         for existing_mean in mean_values:
             distance = euclidean_distances([means], [existing_mean])[0][0]
@@ -67,15 +68,15 @@ def check_means_distances(mean_values, min_distance):
 
 class SynthClassificationSimulationV2(Simulation):
     def __init__(
-            self,
-            name,
-            generator,
-            strategies,
-            results_dir,
-            n_samples,
-            estimator_type,
-            test_set_size,
-            dataset_type,
+        self,
+        name,
+        generator,
+        strategies,
+        results_dir,
+        n_samples,
+        estimator_type,
+        test_set_size,
+        dataset_type,
     ):
         super().__init__(
             name, generator, strategies, results_dir, n_samples, estimator_type
@@ -110,13 +111,13 @@ class SynthClassificationSimulationV2(Simulation):
             theta_values = [np.pi, np.pi / 2, np.pi / 4, 3 * np.pi / 4]
 
             self.mean_values = generate_mean_values(
-                min_distance=4,
+                min_distance=1,
                 n_features=self.generator.size,
                 n_classes=self.generator.n_classes,
             )
 
             self.cov_values = [
-                np.random.uniform(4, 7, triangular_size)
+                np.random.uniform(1, 3, triangular_size)
                 for _ in range(self.generator.n_classes)
             ]
 
@@ -144,14 +145,15 @@ class SynthClassificationSimulationV2(Simulation):
             covariance_matrices = None
 
             while valid_means is not True:
-
                 mean_values = {}
                 covariance_matrices = {}
 
                 for class_index in range(self.generator.n_classes):
                     perturbations.append([])
 
-                    class_perturbation_type = np.random.choice(PERTURBATION_TYPE, size=1)[0]
+                    class_perturbation_type = np.random.choice(
+                        PERTURBATION_TYPE, size=1
+                    )[0]
                     class_perturbation_intensity = np.random.choice(
                         PERTURBATION_INTENSITY, size=1
                     )[0]
@@ -160,8 +162,8 @@ class SynthClassificationSimulationV2(Simulation):
                         perturbation = {}
 
                         if (
-                                class_perturbation_type == "mean"
-                                and class_perturbation_intensity == "small"
+                            class_perturbation_type == "mean"
+                            and class_perturbation_intensity == "small"
                         ):
                             perturbation["type"] = "mean"
                             perturbation["mean"] = np.random.normal(
@@ -170,23 +172,23 @@ class SynthClassificationSimulationV2(Simulation):
 
                             cov_noise = np.random.uniform(-1, 1, triangular_size)
 
-                            perturbation['cov'] = cov_noise
+                            perturbation["cov"] = cov_noise
 
                         elif (
-                                class_perturbation_type == "mean"
-                                and class_perturbation_intensity == "large"
+                            class_perturbation_type == "mean"
+                            and class_perturbation_intensity == "large"
                         ):
                             perturbation["type"] = "mean"
                             perturbation["mean"] = np.random.normal(
-                                scale=5, size=self.generator.size
+                                scale=2, size=self.generator.size
                             )
 
                             cov_noise = np.random.uniform(-1, 1, triangular_size)
                             perturbation["cov"] = cov_noise
 
                         elif (
-                                class_perturbation_type == "combination"
-                                and class_perturbation_intensity == "small"
+                            class_perturbation_type == "combination"
+                            and class_perturbation_intensity == "small"
                         ):
                             perturbation["type"] = "combination"
                             perturbation["mean"] = np.random.normal(
@@ -196,54 +198,56 @@ class SynthClassificationSimulationV2(Simulation):
                             cov_noise = np.random.uniform(-2, 2, triangular_size)
 
                             perturbation["cov"] = cov_noise
-                            perturbation["theta"] = np.random.choice(theta_values, size=1)
+                            perturbation["theta"] = np.random.choice(
+                                theta_values, size=1
+                            )
 
                         else:
                             perturbation["type"] = "combination"
                             perturbation["mean"] = np.random.normal(
-                                scale=5, size=self.generator.size
+                                scale=2, size=self.generator.size
                             )
 
                             cov_noise = np.random.uniform(-5, 5, triangular_size)
 
                             perturbation["cov"] = cov_noise
-                            perturbation["theta"] = np.random.choice(theta_values, size=1)
+                            perturbation["theta"] = np.random.choice(
+                                theta_values, size=1
+                            )
 
                         perturbations[class_index].append(perturbation)
 
                 for i in range(n_concepts):
-
                     mean_values[i] = {}
                     covariance_matrices[i] = {}
 
                     self.concept_mapping["concept_" + str(i)] = {}
 
                     for class_ in range(self.generator.n_classes):
-
                         concept_perturbation = np.random.choice(perturbations[class_])
 
                         if concept_perturbation["type"] == "mean":
-
                             self.generator.mean_values[class_] = (
-                                    self.mean_values[class_] + concept_perturbation["mean"]
+                                self.mean_values[class_] + concept_perturbation["mean"]
                             )
 
                             self.generator.cov_values[class_] = (
-                                    self.cov_values[class_] + concept_perturbation["cov"]
+                                self.cov_values[class_] + concept_perturbation["cov"]
                             )
 
                             mean_values[i][class_] = (
-                                    self.mean_values[class_] + concept_perturbation["mean"]
+                                self.mean_values[class_] + concept_perturbation["mean"]
                             )
-                            covariance_matrices[i][class_] = self.generator.covariance_matrices[class_]
+                            covariance_matrices[i][
+                                class_
+                            ] = self.generator.covariance_matrices[class_]
 
                         else:
-
                             self.generator.mean_values[class_] = (
-                                    self.mean_values[class_] + concept_perturbation["mean"]
+                                self.mean_values[class_] + concept_perturbation["mean"]
                             )
                             self.generator.cov_values[class_] = (
-                                    self.cov_values[class_] + concept_perturbation["cov"]
+                                self.cov_values[class_] + concept_perturbation["cov"]
                             )
 
                             dims = np.random.choice(
@@ -254,28 +258,33 @@ class SynthClassificationSimulationV2(Simulation):
                             )
 
                             mean_values[i][class_] = (
-                                    self.mean_values[class_] + concept_perturbation["mean"]
+                                self.mean_values[class_] + concept_perturbation["mean"]
                             )
-                            covariance_matrices[i][class_] = self.generator.covariance_matrices[class_]
+                            covariance_matrices[i][
+                                class_
+                            ] = self.generator.covariance_matrices[class_]
 
-                valid_means = check_means_distances(mean_values, min_distance=4)
+                valid_means = check_means_distances(mean_values, min_distance=1)
 
             for i in range(n_concepts):
-
                 for class_ in range(self.generator.n_classes):
                     self.generator.mean_values[class_] = mean_values[i][class_]
-                    self.generator.covariance_matrices[class_] = covariance_matrices[i][class_]
+                    self.generator.covariance_matrices[class_] = covariance_matrices[i][
+                        class_
+                    ]
 
                     self.concept_mapping["concept_" + str(i)][
                         "class_" + str(class_)
-                        ] = multivariate_normal(
+                    ] = multivariate_normal(
                         self.generator.mean_values[class_],
                         self.generator.covariance_matrices[class_],
                     )
 
                     # modify means and covs types for storing
                     mean_values[i][class_] = mean_values[i][class_].tolist()
-                    covariance_matrices[i][class_] = covariance_matrices[i][class_].tolist()
+                    covariance_matrices[i][class_] = covariance_matrices[i][
+                        class_
+                    ].tolist()
 
                 self.prior_probs_per_concept.append(self.generator.prior_probs.tolist())
 
@@ -304,7 +313,9 @@ class SynthClassificationSimulationV2(Simulation):
                         self.test_set = self.generator.generate(self.test_set_size)
                         self.test_set = DataProvider("test_set", self.test_set)
 
-                        self.current_concept_extended = self.generator.generate(N_SAMPLES)
+                        self.current_concept_extended = self.generator.generate(
+                            N_SAMPLES
+                        )
                         self.current_concept_extended = DataProvider(
                             "current_concept_extended", self.current_concept_extended
                         )
@@ -329,28 +340,43 @@ class SynthClassificationSimulationV2(Simulation):
             }
 
         elif self.dataset_type == "synth":
-            dataset = pd.read_csv("../datasets/synthetic/rt_2563789698568873_abrupto.csv")
+            dataset = pd.read_csv(
+                "../datasets/synthetic/rt_2563789698568873_abrupto.csv"
+            )
             for i in range(4):
-                self.concepts.append(DataProvider("concept_" + str(i), dataset.iloc[i*10000:(i+1)*10000, :]))
+                self.concepts.append(
+                    DataProvider(
+                        "concept_" + str(i),
+                        dataset.iloc[i * 10000 : (i + 1) * 10000, :],
+                    )
+                )
 
             self.test_set = DataProvider(
                 name="test_set",
-                generated_dataset=self.concepts[-1].generated_dataset.iloc[LAST_CONCEPT_SIZE:TEST_SET_SIZE + LAST_CONCEPT_SIZE, :]
+                generated_dataset=self.concepts[-1].generated_dataset.iloc[
+                    LAST_CONCEPT_SIZE : TEST_SET_SIZE + LAST_CONCEPT_SIZE, :
+                ],
             )
             self.current_concept_extended = DataProvider(
                 name="current_concept_extended",
-                generated_dataset=self.concepts[-1].generated_dataset.iloc[LAST_CONCEPT_SIZE + TEST_SET_SIZE:, :]
+                generated_dataset=self.concepts[-1].generated_dataset.iloc[
+                    LAST_CONCEPT_SIZE + TEST_SET_SIZE :, :
+                ],
             )
             self.estimator_dataset = DataProvider(
                 name="estimator_dataset",
-                generated_dataset=self.concepts[-1].generated_dataset
+                generated_dataset=self.concepts[-1].generated_dataset,
             )
-            self.concepts[-1].generated_dataset = self.concepts[-1].generated_dataset.iloc[:LAST_CONCEPT_SIZE, :]
+            self.concepts[-1].generated_dataset = self.concepts[
+                -1
+            ].generated_dataset.iloc[:LAST_CONCEPT_SIZE, :]
 
         elif self.dataset_type == "real":
             pass
         else:
-            raise ValueError("dataset_type must be one of 'generated', 'synth' or 'real'")
+            raise ValueError(
+                "dataset_type must be one of 'generated', 'synth' or 'real'"
+            )
 
     def run(self):
         """
@@ -376,9 +402,7 @@ class SynthClassificationSimulationV2(Simulation):
 
         scaler = preprocessing.StandardScaler()
 
-        classifier = LogisticRegression(
-            multi_class="multinomial", solver="lbfgs"
-        )
+        classifier = LogisticRegression(multi_class="multinomial", solver="lbfgs")
 
         current_concept = deepcopy(self.concepts[-1].generated_dataset)
 
@@ -391,7 +415,9 @@ class SynthClassificationSimulationV2(Simulation):
         test_set = deepcopy(self.test_set)
         data = test_set.generated_dataset.values
         X = data[:, :-1]
-        test_set.generated_dataset[test_set.generated_dataset.columns[:-1]] = scaler.fit_transform(X)
+        test_set.generated_dataset[
+            test_set.generated_dataset.columns[:-1]
+        ] = scaler.fit_transform(X)
         X_test, y_test = test_set.get_split_dataset()
         self.pre_AL_accuracy = classifier.score(X_test, y_test)
 
@@ -415,7 +441,9 @@ class SynthClassificationSimulationV2(Simulation):
 
             data = scaled_current_concept.values
             X = data[:, :-1]
-            scaled_current_concept[scaled_current_concept.columns[:-1]] = scaler.fit_transform(X)
+            scaled_current_concept[
+                scaled_current_concept.columns[:-1]
+            ] = scaler.fit_transform(X)
 
             X_clrv, y_clrv = (
                 scaled_current_concept[scaled_current_concept.columns[:-1]],
@@ -424,15 +452,19 @@ class SynthClassificationSimulationV2(Simulation):
 
             classifier.fit(X=X_clrv.to_numpy(), y=y_clrv.to_numpy())
 
-            self.clairvoyant_accuracy[
-                n_selected_samples
-            ] = classifier.score(X_test, y_test)
+            self.clairvoyant_accuracy[n_selected_samples] = classifier.score(
+                X_test, y_test
+            )
 
             n_samples -= 1
 
         current_concept = pd.concat(
-            (deepcopy(self.concepts[-1].generated_dataset), self.current_concept_extended.generated_dataset),
-            ignore_index=True)
+            (
+                deepcopy(self.concepts[-1].generated_dataset),
+                self.current_concept_extended.generated_dataset,
+            ),
+            ignore_index=True,
+        )
 
         data = current_concept.values
         X = data[:, :-1]
@@ -449,17 +481,13 @@ class SynthClassificationSimulationV2(Simulation):
 
         # AL strategy
         for strategy in self.strategies:
-            if strategy.__name__ == 'WeightedSamplingStrategy':
+            if strategy.__name__ == "WeightedSamplingStrategy":
                 strategy_instance: WeightedSamplingStrategy = strategy(
                     concept_mapping=deepcopy(self.concept_mapping),
                     concept_list=deepcopy(self.concepts),
                     n_samples=self.n_samples,
                     estimator_type=self.estimator_type,
-                    estimator_dataset=self.estimator_dataset,
                     prior_probs=deepcopy(self.prior_probs_per_concept[0]),
-                    #gamma_handler=gamma_handler,
-                    # alpha=alpha,
-                    # gamma=gamma
                 )
 
             else:
@@ -468,7 +496,6 @@ class SynthClassificationSimulationV2(Simulation):
                     concept_list=deepcopy(self.concepts),
                     n_samples=self.n_samples,
                     estimator_type=self.estimator_type,
-                    estimator_dataset=self.estimator_dataset,
                     prior_probs=deepcopy(self.prior_probs_per_concept[0]),
                 )
             self.strategy_instances.append(strategy_instance)
@@ -492,6 +519,10 @@ class SynthClassificationSimulationV2(Simulation):
                 strategy_instance.name
             ] = strategy_instance.all_selected_samples
 
+            self.relabeled_samples_per_strategy[
+                strategy_instance.name
+            ] = strategy_instance.all_relabeled_samples
+
             if isinstance(strategy_instance, WeightedSamplingStrategy):
                 self.weights = strategy_instance.weights
                 self.weights = pd.concat(
@@ -512,7 +543,7 @@ class SynthClassificationSimulationV2(Simulation):
         # Save concepts
         for concept in self.concepts:
             concept_path = concepts_path / str(concept.name + ".csv")
-            concept.generated_dataset.to_csv(concept_path, index=False)
+            concept.generated_dataset.to_csv(concept_path, index=True)
 
         # Save test set
         test_set_path = Path(
@@ -577,6 +608,20 @@ class SynthClassificationSimulationV2(Simulation):
                 selected_samples_path, index=False
             )
 
+        for strategy_name, samples in self.relabeled_samples_per_strategy.items():
+            relabeled_samples_path = Path(
+                simulation_results_dir
+                + "/"
+                + str(experiment_index)
+                + "/"
+                + str(strategy_name)
+                + "/"
+                + "relabeled_samples.csv"
+            )
+            pd.DataFrame(samples, columns=columns).to_csv(
+                relabeled_samples_path, index=False
+            )
+
         # Save clairvoyant accuracy
         for key, item in self.clairvoyant_accuracy.items():
             clairvoyant_accuracy_path = Path(
@@ -598,19 +643,33 @@ class SynthClassificationSimulationV2(Simulation):
         # save weights
         if self.weights is not None:
             weights_path = Path(
-                simulation_results_dir
-                + "/"
-                + str(experiment_index)
-                + "/weights.csv"
+                simulation_results_dir + "/" + str(experiment_index) + "/weights.csv"
             )
             self.weights.to_csv(weights_path, index=False)
 
         # save generation metadata
         metadata_file = (
-                simulation_results_dir + "/" + str(experiment_index) + "/metadata.json"
+            simulation_results_dir + "/" + str(experiment_index) + "/metadata.json"
         )
         with open(metadata_file, "w") as metadata_file:
             json.dump(self.metadata, metadata_file)
+
+        # for strategy in self.strategy_instances:
+        #     if strategy.name == "WeightedSampling":
+        #         for i, score in enumerate(strategy.score_list):
+        #             score_path = Path(
+        #                 simulation_results_dir
+        #                 + "/"
+        #                 + str(experiment_index)
+        #                 + "/"
+        #                 + str(strategy.name)
+        #                 + "/"
+        #                 + str(i+1)
+        #                 + "_score.csv"
+        #             )
+        #             score_path.parent.mkdir(parents=True, exist_ok=True)
+        #
+        #             score.to_csv(score_path, index=True, header=False)
 
     def soft_reset(self):
         self.generator.reset()
@@ -621,6 +680,7 @@ class SynthClassificationSimulationV2(Simulation):
         self.concepts = []
         self.prior_probs_per_concept = []
         self.selected_samples_per_strategy = {}
+        self.relabeled_samples_per_strategy = {}
 
         self.test_set = None
 
@@ -630,22 +690,18 @@ class SynthClassificationSimulationV2(Simulation):
 
 
 if __name__ == "__main__":
-    N_EXPERIMENTS = 20
+    N_EXPERIMENTS = 10
 
-    N_SAMPLES = 200
+    N_SAMPLES = 100
 
     N_FEATURES = 2
     N_CLASSES = 4
 
     N_CONCEPTS = 5
-    CONCEPT_SIZE = 1000
-    LAST_CONCEPT_SIZE = 13
+    CONCEPT_SIZE = 200
+    LAST_CONCEPT_SIZE = 10
 
     TEST_SET_SIZE = 300
-
-    alphas = [0.3]
-    gammas = [0.1]
-    gamma_handler = [0.5]
 
     simulation = SynthClassificationSimulationV2(
         name="synth_classification_fixed_dataset_and_samples_v2",
