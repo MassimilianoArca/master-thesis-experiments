@@ -25,6 +25,8 @@ from master_thesis_experiments.active_learning.entropy_sampling import (
 from master_thesis_experiments.active_learning.random_sampling_v3 import (
     RandomSamplingStrategyV3,
 )
+from master_thesis_experiments.adaptation.density_estimation import MultivariateNormalEstimator
+from master_thesis_experiments.handlers.importance_weights import IWHandler
 
 from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
 from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import (
@@ -259,6 +261,38 @@ def rotate(x, y, theta):
     return [x * np.cos(theta) - y * np.sin(theta), x * np.sin(theta) + y * np.cos(theta)]
 
 
+def generate_data(data_size=10000,  # before imbalance, approx
+                  x_min_max=2,
+                  shape_param_1=1,  # try values like 3,5,7,[10] and see how graph changes
+                  shape_param_2=0.5,  # try 5,10,15,20
+                  shape_param_3=2,  # try between 1-5
+                  shape_param_4=3,  # try 50,100,150,200
+                  ):
+    min_x, max_x = -x_min_max, x_min_max
+    interval = (max_x - min_x) / data_size
+    x_0 = np.arange(min_x, max_x, interval)
+    y_line = np.clip((x_0 ** 3) / shape_param_4 - shape_param_1 * x_0 + shape_param_2 * np.sin(x_0 / shape_param_3),
+                     -80, 80)
+
+    x_1 = np.random.uniform(min(y_line) - 2, max(y_line) + 2, len(x_0))
+    y = x_1 > y_line
+
+    circle1 = np.where((x_0 - 0.5) ** 2 + (x_1 - 0.5) ** 2 < 1)
+    y[circle1] = ~(np.mean(y[circle1]) > 0.5)
+
+    circle2 = np.where((x_0 + 0.7) ** 2 + (x_1 + 1) ** 2 < 1)
+    y[circle2] = ~(np.mean(y[circle2]) > 0.5)
+    circle3 = np.where((x_0 - 1) ** 2 + (x_1 + 1) ** 2 < 1)
+    y[circle3] = ~(np.mean(y[circle3]) > 0.5)
+
+    circle4 = np.where((x_0 + 0.2) ** 2 + (x_1 - 0.2) ** 2 < 0.5)
+    y[circle4] = ~(np.mean(y[circle4]) > 0.5)
+
+    X = pd.DataFrame({"X_0": x_0, "X_1": x_1, "y_0": y})
+
+    return X
+
+
 class SynthClassificationSimulationV3:
     def __init__(
             self,
@@ -269,6 +303,7 @@ class SynthClassificationSimulationV3:
             n_queries,
             test_set_size,
     ):
+        self.shape_param = None
         self.rotation_angle = None
         self.cov_values = None
         self.mean_values = None
@@ -292,6 +327,7 @@ class SynthClassificationSimulationV3:
         self.selected_samples_per_strategy = {}
         self.prior_probs_per_concept = []
         self.concept_mapping = None
+        self.ess_per_strategy = {}
 
         self.start_time = datetime.now()
         self.sim_id = self.start_time.strftime("%d-%m-%Y-%H:%M")
@@ -673,6 +709,72 @@ class SynthClassificationSimulationV3:
                 self.concept_list.append(
                     DataProvider(name=f"concept_{i}", generated_dataset=dataset)
                 )
+        elif dataset_type == "custom":
+
+            for i in range(n_concepts):
+                if i != n_concepts - 1:
+                    X = generate_data(
+                        data_size=concept_size,
+                        x_min_max=2,
+                        shape_param_1=i + 1,
+                        shape_param_2=i + 1,
+                        shape_param_3=i + 1,
+                        shape_param_4=i + 1,
+                    )
+                    X["y_0"] = X["y_0"].astype("int64")
+                    generated_classes = X["y_0"].unique()
+
+                    while len(generated_classes) != 2:
+                        logger.debug(
+                            "Regenerating dataset, some class did not generate any sample"
+                        )
+                        X = generate_data(
+                            data_size=concept_size,
+                            x_min_max=2,
+                            shape_param_1=i + 1,
+                            shape_param_2=i + 1,
+                            shape_param_3=i + 1,
+                            shape_param_4=i + 1,
+                        )
+                        X["y_0"] = X["y_0"].astype("int64")
+                        generated_classes = X["y_0"].unique()
+
+                else:
+                    concept = generate_data(
+                        data_size=last_concept_size + self.test_set_size + 10000,
+                        x_min_max=2,
+                        shape_param_1=i + 1,
+                        shape_param_2=i + 1,
+                        shape_param_3=i + 1,
+                        shape_param_4=i + 1,
+                    )
+                    self.shape_param = i + 1
+                    concept["y_0"] = concept["y_0"].astype("int64")
+                    X = concept[:last_concept_size]
+                    generated_classes = X["y_0"].unique()
+
+                    while len(generated_classes) != 2:
+                        logger.debug(
+                            "Regenerating dataset, some class did not generate any sample"
+                        )
+                        concept = generate_data(
+                            data_size=last_concept_size + self.test_set_size + 10000,
+                            x_min_max=2,
+                            shape_param_1=i + 1,
+                            shape_param_2=i + 1,
+                            shape_param_3=i + 1,
+                            shape_param_4=i + 1,
+                        )
+                        concept["y_0"] = concept["y_0"].astype("int64")
+                        X = concept[:last_concept_size]
+                        generated_classes = X["y_0"].unique()
+
+                    self.test_set = concept[last_concept_size:last_concept_size + self.test_set_size]
+                    self.current_concept_extended = concept[last_concept_size + self.test_set_size:]
+
+                self.concept_list.append(
+                    DataProvider(name=f"concept_{i}", generated_dataset=X)
+                )
 
         self.metadata = {
             "past_dataset_size": (n_concepts - 1) * concept_size,
@@ -686,7 +788,7 @@ class SynthClassificationSimulationV3:
             "test_set_size": self.test_set_size,
         }
 
-    def run(self, alpha):
+    def run(self):
         clairvoyant = GaussianNB()
 
         current_concept = deepcopy(self.concept_list[-1].generated_dataset)
@@ -741,24 +843,20 @@ class SynthClassificationSimulationV3:
         self.clairvoyant_final_accuracy = clairvoyant.score(X_test, y_test)
 
         for strategy in self.strategies:
-            if strategy.__name__ == "EntropyDiversitySamplingStrategy":
-                strategy_instance: EntropyDiversitySamplingStrategy = strategy(
-                    concept_list=deepcopy(self.concept_list),
-                    n_samples=self.n_queries,
-                    current_concept_extended=self.current_concept_extended,
-                    concept_mapping=self.concept_mapping,
-                    rotation_angle=self.rotation_angle,
-                    alpha=alpha,
-                )
 
-            else:
-                strategy_instance: BaseStrategyV3 = strategy(
-                    concept_list=deepcopy(self.concept_list),
-                    n_samples=self.n_queries,
-                    current_concept_extended=self.current_concept_extended,
-                    concept_mapping=self.concept_mapping,
-                    rotation_angle=self.rotation_angle,
-                )
+            iw_handler = IWHandler(
+                concept_list=deepcopy(self.concept_list),
+                estimator_type=MultivariateNormalEstimator
+            )
+
+            strategy_instance: BaseStrategyV3 = strategy(
+                concept_list=deepcopy(self.concept_list),
+                n_samples=self.n_queries,
+                current_concept_extended=self.current_concept_extended,
+                concept_mapping=self.concept_mapping,
+                rotation_angle=self.rotation_angle,
+                shape_param=self.shape_param,
+            )
 
             self.strategy_instances.append(strategy_instance)
             classifier = GaussianNB()
@@ -769,6 +867,11 @@ class SynthClassificationSimulationV3:
             n_queries = self.n_queries
             while n_queries > 0:
                 relabeled_sample = strategy_instance.run()
+
+                # add sample to the current concept of iw handler
+                # the first computation of the ess will be done after the first query
+                iw_handler.current_concept.add_samples([relabeled_sample])
+
                 relabeled_sample = pd.DataFrame(
                     [relabeled_sample], columns=current_concept.columns
                 )
@@ -782,14 +885,18 @@ class SynthClassificationSimulationV3:
                     (strategy_instance.name, n_selected_samples)
                 ] = classifier.score(X_test, y_test)
 
+                self.ess_per_strategy[
+                    (strategy_instance.name, n_selected_samples)
+                ] = iw_handler.compute_effective_sample_size()
+
                 n_queries -= 1
 
             self.selected_samples_per_strategy[
                 strategy_instance.name
             ] = strategy_instance.all_selected_samples
 
-    def store_results(self, alpha, experiment_index):
-        simulation_results_dir = self.simulation_results_dir + "/" + str(alpha)
+    def store_results(self, experiment_index):
+        simulation_results_dir = self.simulation_results_dir
         concepts_path = Path(simulation_results_dir + "/" + str(experiment_index))
         concepts_path.mkdir(parents=True, exist_ok=True)
 
@@ -846,6 +953,24 @@ class SynthClassificationSimulationV3:
                 writer = csv.writer(f)
                 writer.writerow([item])
 
+        # Save ESS
+        for key, item in self.ess_per_strategy.items():
+            ess_path = Path(
+                simulation_results_dir
+                + "/"
+                + str(experiment_index)
+                + "/"
+                + str(key[0])
+                + "/"
+                + str(key[1])
+                + "_samples_ess.csv"
+            )
+            ess_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(ess_path, "w") as f:
+                writer = csv.writer(f)
+                writer.writerow([item])
+
         columns = self.concept_list[0].generated_dataset.columns
         for strategy_name, samples in self.selected_samples_per_strategy.items():
             selected_samples_path = Path(
@@ -894,10 +1019,12 @@ class SynthClassificationSimulationV3:
         self.concept_list = []
         self.selected_samples_per_strategy = {}
         self.prior_probs_per_concept = []
+        self.shape_param = None
 
         self.test_set = None
 
         self.AL_accuracy = {}
+        self.ess_per_strategy = {}
         self.pre_AL_accuracy = 0.0
 
 
@@ -911,16 +1038,16 @@ if __name__ == "__main__":
 
     N_CONCEPTS = 5
     CONCEPT_SIZE = 500
-    LAST_CONCEPT_SIZE = 20
+    LAST_CONCEPT_SIZE = 5
 
     TEST_SET_SIZE = 300
-
-    alphas = np.linspace(0.1, 0.9, 9)
 
     simulation = SynthClassificationSimulationV3(
         name="synth_classification_v3",
         strategies=[
+            RandomSamplingStrategyV3,
             EntropyDiversitySamplingStrategy,
+            EntropySamplingStrategy
         ],
         result_dir=get_root_level_dir("results"),
         n_classes=N_CLASSES,
@@ -928,18 +1055,16 @@ if __name__ == "__main__":
         test_set_size=TEST_SET_SIZE,
     )
 
-    for a in alphas:
+    for experiment in tqdm(range(N_EXPERIMENTS)):
+        simulation.generate_dataset(
+            n_concepts=N_CONCEPTS,
+            concept_size=CONCEPT_SIZE,
+            last_concept_size=LAST_CONCEPT_SIZE,
+            dataset_type="multivariate_normal",
+        )
 
-        for experiment in tqdm(range(N_EXPERIMENTS)):
-            simulation.generate_dataset(
-                n_concepts=N_CONCEPTS,
-                concept_size=CONCEPT_SIZE,
-                last_concept_size=LAST_CONCEPT_SIZE,
-                dataset_type="multivariate_normal",
-            )
+        simulation.run()
 
-            simulation.run(a)
+        simulation.store_results(experiment)
 
-            simulation.store_results(a, experiment)
-
-            simulation.soft_reset()
+        simulation.soft_reset()

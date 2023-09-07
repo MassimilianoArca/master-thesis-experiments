@@ -25,6 +25,7 @@ class EntropySamplingStrategy(BaseStrategyV3):
         current_concept_extended,
         concept_mapping=None,
         rotation_angle=None,
+            shape_param=None
     ):
         super().__init__(
             concept_list=concept_list,
@@ -32,6 +33,7 @@ class EntropySamplingStrategy(BaseStrategyV3):
             current_concept_extended=current_concept_extended,
             concept_mapping=concept_mapping,
             rotation_angle=rotation_angle,
+            shape_param=shape_param
         )
         self.name = "EntropySampling"
         self.model = SGDClassifier(loss="log_loss", random_state=42)

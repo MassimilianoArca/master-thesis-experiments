@@ -4,13 +4,17 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 from sklearn import preprocessing
-from sklearn.linear_model import SGDClassifier
+from sklearn.linear_model import SGDClassifier, Perceptron
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.mixture import BayesianGaussianMixture
 from sklearn.metrics import pairwise
 from sklearn.naive_bayes import GaussianNB
 from scipy.stats import entropy
 
 from master_thesis_experiments.active_learning.base import BaseStrategy, BaseStrategyV3
-from master_thesis_experiments.adaptation.density_estimation import DensityEstimator
+from master_thesis_experiments.adaptation.density_estimation import DensityEstimator, MultivariateNormalEstimator
+from master_thesis_experiments.handlers.importance_weights import IWHandler
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
 logger = get_logger(__file__)
@@ -24,9 +28,9 @@ class EntropyDiversitySamplingStrategy(BaseStrategyV3):
         concept_list,
         n_samples,
         current_concept_extended,
-        alpha,
         concept_mapping=None,
         rotation_angle=None,
+        shape_param=None
     ):
         super().__init__(
             concept_list=concept_list,
@@ -34,6 +38,7 @@ class EntropyDiversitySamplingStrategy(BaseStrategyV3):
             current_concept_extended=current_concept_extended,
             concept_mapping=concept_mapping,
             rotation_angle=rotation_angle,
+            shape_param=shape_param
         )
         self.name = "EntropyDiversitySampling"
         self.model = GaussianNB()
@@ -42,12 +47,10 @@ class EntropyDiversitySamplingStrategy(BaseStrategyV3):
             X_current, y_current.values.ravel(), classes=self.classes.astype(float)
         )
         self.columns = self.current_concept.get_dataset().columns
-        self.alpha = alpha
 
         self.decay_rate = 0.03
         self.initial_random_prob = 1.0
 
-        # self.estimate_new_concept()
         self.train_labeler()
 
     def select_samples(self):
@@ -71,7 +74,7 @@ class EntropyDiversitySamplingStrategy(BaseStrategyV3):
             self.all_selected_samples.append(self.selected_sample.tolist())
             self.current_concept.add_samples([self.selected_sample.T])
         else:
-            alpha = self.alpha
+            alpha = 0.25
 
             X_past, _ = self.past_dataset.get_split_dataset_v3()
             past_dataset = deepcopy(self.past_dataset.get_dataset())
