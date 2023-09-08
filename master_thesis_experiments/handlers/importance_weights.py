@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import List
 
 import numpy as np
@@ -47,18 +48,24 @@ class IWHandler:
                 input_estimator = self.estimator_type(concept_id=concept.name)
                 input_estimator.fit(X)
                 conditional_estimator = GaussianNB()
-                conditional_estimator.fit(X, y)
+                conditional_estimator.fit(X, y.to_numpy().ravel())
 
                 self.past_input_estimators[concept.name] = input_estimator
                 self.past_conditional_estimators[concept.name] = conditional_estimator
 
     def estimate_current_concept(self):
-
         X, y = self.current_concept.get_split_dataset_v3()
         if self.current_conditional_estimator is None:
             self.current_conditional_estimator = GaussianNB()
-
-        self.current_conditional_estimator.fit(X, y)
+            self.current_conditional_estimator.partial_fit(
+                X, y.to_numpy().ravel(), classes=self.classes
+            )
+        else:
+            last_X = X.iloc[-1].to_frame().T
+            last_y = y.iloc[-1].to_frame().T
+            self.current_conditional_estimator.partial_fit(
+                last_X, last_y.to_numpy().ravel()
+            )
 
         if self.input_distribution_estimator is None:
             input_distribution_estimator = self.estimator_type(
@@ -66,6 +73,41 @@ class IWHandler:
             )
             input_distribution_estimator.fit(X)
             self.input_distribution_estimator = input_distribution_estimator
+
+    def compute_multiple_iw_weights(self):
+        n_concepts = len(self.past_concepts) + 1
+        n_samples = self.current_concept.get_dataset().shape[0] + np.sum(
+            [concept.get_dataset().shape[0] for concept in self.past_concepts]
+        )
+
+        pdfs = np.empty(shape=(n_concepts, n_samples))
+        past_concepts = deepcopy(self.past_concepts)
+        past_concepts.append(deepcopy(self.current_concept))
+
+        all_samples = np.concatenate([concept.get_dataset().to_numpy() for concept in past_concepts], axis=0)
+        all_features = all_samples[:, :-1]
+        all_classes = all_samples[:, -1].astype(int)
+
+        for concept_index, concept in enumerate(past_concepts):
+            if concept.name == self.current_concept.name:
+                input_estimator = self.input_distribution_estimator
+                conditional_estimator = self.current_conditional_estimator
+            else:
+                input_estimator = self.past_input_estimators[concept.name]
+                conditional_estimator = self.past_conditional_estimators[concept.name]
+
+            pdfs[concept_index] = input_estimator.pdf(all_features) * conditional_estimator.predict_proba(all_features)[
+                np.arange(all_features.shape[0]), all_classes]
+
+        target_pdfs = pdfs[-1]
+        sample_per_concept_proportions = np.array(
+            [concept.get_dataset().shape[0] for concept in past_concepts]) / n_samples
+        behavioral_pdfs = pdfs * sample_per_concept_proportions.reshape((-1, 1))
+        behavioral_pdfs = np.sum(behavioral_pdfs, axis=0)
+
+        is_weights = target_pdfs / behavioral_pdfs
+        sn_weights = is_weights / is_weights.sum()
+        return sn_weights
 
     def compute_past_concepts_probabilities(self):
         """
@@ -84,13 +126,14 @@ class IWHandler:
                     sample = X.loc[index].to_frame().T
                     label = y.loc[index].astype(int)
 
-                    conditional_estimator = self.past_conditional_estimators[concept.name]
+                    conditional_estimator = self.past_conditional_estimators[
+                        concept.name
+                    ]
                     input_estimator = self.past_input_estimators[concept.name]
 
-                    concept_joints[index] = (
-                            conditional_estimator.predict_proba(sample)[0][label]
-                            * input_estimator.pdf(sample)
-                    )
+                    concept_joints[index] = conditional_estimator.predict_proba(sample)[
+                                                0
+                                            ][label] * input_estimator.pdf(sample)
                 concept_joints = pd.DataFrame(concept_joints)
                 self.past_concepts_joints_probabilities.append(concept_joints)
 
@@ -113,10 +156,9 @@ class IWHandler:
                 conditional_estimator = self.current_conditional_estimator
                 input_estimator = self.input_distribution_estimator
 
-                concept_joints[index] = (
-                        conditional_estimator.predict_proba(sample)[0][label]
-                        * input_estimator.pdf(sample)
-                )
+                concept_joints[index] = conditional_estimator.predict_proba(sample)[0][
+                                            label
+                                        ] * input_estimator.pdf(sample)
             concept_joints = pd.DataFrame(concept_joints)
             self.current_concept_joints_probabilities.append(concept_joints)
 
@@ -132,32 +174,15 @@ class IWHandler:
     def run_weights(self):
         self.estimate_past_concepts()
         self.estimate_current_concept()
-        self.compute_past_concepts_probabilities()
-        self.compute_current_concept_probabilities()
 
-        weights_list = self.compute_weights()
-
-        current_concept_weights = np.ones(
-            shape=self.current_concept.get_dataset().shape[0]
-        )
-        current_concept_weights = pd.DataFrame(current_concept_weights)
-        weights_list.append(current_concept_weights)
-
-        imp_weights = pd.DataFrame()
-        for weights in weights_list:
-            imp_weights = pd.concat([imp_weights, weights], axis=0)
-
-        imp_weights = imp_weights.to_numpy()
-        return imp_weights.flatten()
+        weights_list = self.compute_multiple_iw_weights()
+        return weights_list
 
     def compute_effective_sample_size(self):
         imp_weights = self.run_weights()
-        numerator = np.sum(imp_weights) ** 2
-        denominator = np.sum(imp_weights ** 2)
-        ess = numerator / denominator
+        ess = 1 / np.sum(imp_weights ** 2)
         return ess
 
     def soft_reset(self):
-
         self.weights_per_concept = []
         self.current_concept_joints_probabilities = []

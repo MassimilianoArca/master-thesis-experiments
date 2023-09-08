@@ -13,7 +13,10 @@ from sklearn.naive_bayes import GaussianNB
 from scipy.stats import entropy
 
 from master_thesis_experiments.active_learning.base import BaseStrategy, BaseStrategyV3
-from master_thesis_experiments.adaptation.density_estimation import DensityEstimator, MultivariateNormalEstimator
+from master_thesis_experiments.adaptation.density_estimation import (
+    DensityEstimator,
+    MultivariateNormalEstimator,
+)
 from master_thesis_experiments.handlers.importance_weights import IWHandler
 from master_thesis_experiments.simulator_toolbox.utils import get_logger
 
@@ -30,7 +33,7 @@ class EntropyDiversitySamplingStrategy(BaseStrategyV3):
         current_concept_extended,
         concept_mapping=None,
         rotation_angle=None,
-        shape_param=None
+        shape_param=None,
     ):
         super().__init__(
             concept_list=concept_list,
@@ -38,7 +41,7 @@ class EntropyDiversitySamplingStrategy(BaseStrategyV3):
             current_concept_extended=current_concept_extended,
             concept_mapping=concept_mapping,
             rotation_angle=rotation_angle,
-            shape_param=shape_param
+            shape_param=shape_param,
         )
         self.name = "EntropyDiversitySampling"
         self.model = GaussianNB()

@@ -18,13 +18,13 @@ logger = get_logger(__file__)
 
 class BaseStrategy:
     def __init__(
-            self,
-            concept_mapping,
-            concept_list,
-            n_samples,
-            prior_probs,
-            estimator_type: DensityEstimator(),
-            estimator_dataset: Optional[DataProvider] = None,
+        self,
+        concept_mapping,
+        concept_list,
+        n_samples,
+        prior_probs,
+        estimator_type: DensityEstimator(),
+        estimator_dataset: Optional[DataProvider] = None,
     ):
         self.concept_mapping = concept_mapping
         self.concept_list = concept_list
@@ -102,7 +102,7 @@ class BaseStrategy:
         for class_ in self.classes:
             dist = self.concept_mapping[self.current_concept.name][
                 "class_" + str(class_)
-                ]
+            ]
             pdfs.append(dist.pdf(X))
 
         norm_pdfs = [float(i) / sum(pdfs) for i in pdfs]
@@ -125,22 +125,25 @@ def custom_boundary_1(x, y):
 
 
 def custom_boundary_2(x, y):
-    return -(x) ** 2 + y - x + 4
+    return -((x) ** 2) + y - x + 4
 
 
 def rotate(x, y, theta):
-    return [x * np.cos(theta) - y * np.sin(theta), x * np.sin(theta) + y * np.cos(theta)]
+    return [
+        x * np.cos(theta) - y * np.sin(theta),
+        x * np.sin(theta) + y * np.cos(theta),
+    ]
 
 
 class BaseStrategyV3:
     def __init__(
-            self,
-            concept_list,
-            n_samples,
-            current_concept_extended,
-            concept_mapping=None,
-            rotation_angle=None,
-            shape_param=None,
+        self,
+        concept_list,
+        n_samples,
+        current_concept_extended,
+        concept_mapping=None,
+        rotation_angle=None,
+        shape_param=None,
     ):
         self.n_samples = n_samples
         self.past_concepts = concept_list[:-1]
@@ -228,7 +231,7 @@ class BaseStrategyV3:
             for class_ in self.classes:
                 dist = self.concept_mapping[self.current_concept.name][
                     "class_" + str(class_)
-                    ]
+                ]
                 pdfs.append(dist.pdf(X.reshape(1, -1)))
 
             norm_pdfs = np.array([float(i) / sum(pdfs) for i in pdfs]).flatten()
@@ -255,27 +258,31 @@ class BaseStrategyV3:
             x_1 = X[1]
 
             y_line = np.clip(
-                (x_0 ** 3) / self.shape_param - self.shape_param * x_0 + self.shape_param * np.sin(
-                    x_0 / self.shape_param), -80, 80)
+                (x_0**3) / self.shape_param
+                - self.shape_param * x_0
+                + self.shape_param * np.sin(x_0 / self.shape_param),
+                -80,
+                80,
+            )
             y = [x_1 > y_line]
             circle1 = np.where((x_0 - 0.5) ** 2 + (x_1 - 0.5) ** 2 < 1)[0]
             if circle1.shape[0] != 0:
                 circle1 = circle1[0]
-                y[circle1] = (~(np.mean(y[circle1]) > 0.5))
+                y[circle1] = ~(np.mean(y[circle1]) > 0.5)
 
             circle2 = np.where((x_0 + 0.7) ** 2 + (x_1 + 1) ** 2 < 1)[0]
             if circle2.shape[0] != 0:
                 circle2 = circle2[0]
-                y[circle2] = (~(np.mean(y[circle2]) > 0.5))
+                y[circle2] = ~(np.mean(y[circle2]) > 0.5)
             circle3 = np.where((x_0 - 1) ** 2 + (x_1 + 1) ** 2 < 1)[0]
             if circle3.shape[0] != 0:
                 circle3 = circle3[0]
-                y[circle3] = (~(np.mean(y[circle3]) > 0.5))
+                y[circle3] = ~(np.mean(y[circle3]) > 0.5)
 
             circle4 = np.where((x_0 + 0.2) ** 2 + (x_1 - 0.2) ** 2 < 0.5)[0]
             if circle4.shape[0] != 0:
                 circle4 = circle4[0]
-                y[circle4] = (~(np.mean(y[circle4]) > 0.5))
+                y[circle4] = ~(np.mean(y[circle4]) > 0.5)
 
             self.selected_sample[-1] = y[0].astype("int64")
 

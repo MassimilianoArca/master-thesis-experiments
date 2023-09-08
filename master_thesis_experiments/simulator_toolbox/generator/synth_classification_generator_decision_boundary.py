@@ -41,7 +41,7 @@ class SynthClassificationGeneratorDecisionBoundary:
             centers=self.n_classes,
             n_features=self.size,
             cluster_std=3,
-            random_state=42
+            random_state=42,
         )
 
         batch_df = pd.DataFrame(X, columns=self.columns_names)

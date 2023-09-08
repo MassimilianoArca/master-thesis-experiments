@@ -19,7 +19,7 @@ class RandomSamplingStrategyV3(BaseStrategyV3):
         current_concept_extended,
         concept_mapping=None,
         rotation_angle=None,
-        shape_param=None
+        shape_param=None,
     ):
         super().__init__(
             concept_list=concept_list,
@@ -27,7 +27,7 @@ class RandomSamplingStrategyV3(BaseStrategyV3):
             current_concept_extended=current_concept_extended,
             concept_mapping=concept_mapping,
             rotation_angle=rotation_angle,
-            shape_param=shape_param
+            shape_param=shape_param,
         )
         self.name = "RandomSamplingV3"
 

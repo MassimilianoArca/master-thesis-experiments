@@ -4,16 +4,18 @@ import random
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
+from collections import Counter
 
 import numpy as np
 import pandas as pd
 from scipy.stats import multivariate_normal
 from sklearn.datasets import make_blobs
-from sklearn.linear_model import SGDClassifier, Perceptron
+from sklearn.linear_model import SGDClassifier, Perceptron, PassiveAggressiveClassifier
 from sklearn.metrics import euclidean_distances
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.naive_bayes import GaussianNB
 from tqdm import tqdm
+from incremental_trees.models.classification.streaming_rfc import StreamingRFC
 
 from master_thesis_experiments.active_learning.base import BaseStrategyV3
 from master_thesis_experiments.active_learning.entropy_diversity_sampling import (
@@ -25,15 +27,18 @@ from master_thesis_experiments.active_learning.entropy_sampling import (
 from master_thesis_experiments.active_learning.random_sampling_v3 import (
     RandomSamplingStrategyV3,
 )
-from master_thesis_experiments.adaptation.density_estimation import MultivariateNormalEstimator
+from master_thesis_experiments.adaptation.density_estimation import (
+    MultivariateNormalEstimator,
+)
 from master_thesis_experiments.handlers.importance_weights import IWHandler
 
 from master_thesis_experiments.simulator_toolbox.data_provider.base import DataProvider
 from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator import (
     SynthClassificationGenerator,
 )
-from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator_decision_boundary import \
-    SynthClassificationGeneratorDecisionBoundary
+from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator_decision_boundary import (
+    SynthClassificationGeneratorDecisionBoundary,
+)
 from master_thesis_experiments.simulator_toolbox.generator.synth_classification_generator_v2 import (
     SynthClassificationGeneratorV2,
 )
@@ -254,25 +259,34 @@ def custom_boundary_1(x, y):
 
 
 def custom_boundary_2(x, y):
-    return -(x) ** 2 + y - x + 4
+    return -((x) ** 2) + y - x + 4
 
 
 def rotate(x, y, theta):
-    return [x * np.cos(theta) - y * np.sin(theta), x * np.sin(theta) + y * np.cos(theta)]
+    return [
+        x * np.cos(theta) - y * np.sin(theta),
+        x * np.sin(theta) + y * np.cos(theta),
+    ]
 
 
-def generate_data(data_size=10000,  # before imbalance, approx
-                  x_min_max=2,
-                  shape_param_1=1,  # try values like 3,5,7,[10] and see how graph changes
-                  shape_param_2=0.5,  # try 5,10,15,20
-                  shape_param_3=2,  # try between 1-5
-                  shape_param_4=3,  # try 50,100,150,200
-                  ):
+def generate_data(
+        data_size=10000,  # before imbalance, approx
+        x_min_max=2,
+        shape_param_1=1,  # try values like 3,5,7,[10] and see how graph changes
+        shape_param_2=0.5,  # try 5,10,15,20
+        shape_param_3=2,  # try between 1-5
+        shape_param_4=3,  # try 50,100,150,200
+):
     min_x, max_x = -x_min_max, x_min_max
     interval = (max_x - min_x) / data_size
     x_0 = np.arange(min_x, max_x, interval)
-    y_line = np.clip((x_0 ** 3) / shape_param_4 - shape_param_1 * x_0 + shape_param_2 * np.sin(x_0 / shape_param_3),
-                     -80, 80)
+    y_line = np.clip(
+        (x_0 ** 3) / shape_param_4
+        - shape_param_1 * x_0
+        + shape_param_2 * np.sin(x_0 / shape_param_3),
+        -80,
+        80,
+    )
 
     x_1 = np.random.uniform(min(y_line) - 2, max(y_line) + 2, len(x_0))
     y = x_1 > y_line
@@ -633,14 +647,12 @@ class SynthClassificationSimulationV3:
                 )
 
         elif dataset_type == "decision_boundary":
-
             centers = generate_mean_values(
                 min_distance=3,
                 n_features=2,
                 n_classes=self.n_classes,
             )
             for i in range(n_concepts):
-
                 if i != n_concepts - 1:
                     X, _ = make_blobs(
                         n_samples=concept_size,
@@ -652,8 +664,12 @@ class SynthClassificationSimulationV3:
                     classified_labels = []
                     for point in X:
                         rotated_point = rotate(point[0], point[1], 0.5 * i)
-                        region_1 = custom_boundary_1(rotated_point[0], rotated_point[1]) >= 0
-                        region_2 = custom_boundary_2(rotated_point[0], rotated_point[1]) >= 0
+                        region_1 = (
+                                custom_boundary_1(rotated_point[0], rotated_point[1]) >= 0
+                        )
+                        region_2 = (
+                                custom_boundary_2(rotated_point[0], rotated_point[1]) >= 0
+                        )
 
                         if region_1 and region_2:
                             classified_labels.append(0.0)
@@ -663,6 +679,36 @@ class SynthClassificationSimulationV3:
                             classified_labels.append(2.0)
                         else:
                             classified_labels.append(3.0)
+
+                    while len(Counter(classified_labels).keys()) < 4:
+                        logger.debug(
+                            "Regenerating dataset, some class did not generate any sample"
+                        )
+                        X, _ = make_blobs(
+                            n_samples=last_concept_size + self.test_set_size + 10000,
+                            centers=centers,
+                            n_features=2,
+                            cluster_std=1.5,
+                        )
+
+                        classified_labels = []
+                        for point in X:
+                            rotated_point = rotate(point[0], point[1], 0.5 * i)
+                            region_1 = (
+                                    custom_boundary_1(rotated_point[0], rotated_point[1]) >= 0
+                            )
+                            region_2 = (
+                                    custom_boundary_2(rotated_point[0], rotated_point[1]) >= 0
+                            )
+
+                            if region_1 and region_2:
+                                classified_labels.append(0.0)
+                            elif not region_1 and region_2:
+                                classified_labels.append(1.0)
+                            elif not region_1 and not region_2:
+                                classified_labels.append(2.0)
+                            else:
+                                classified_labels.append(3.0)
                 else:
                     concept, _ = make_blobs(
                         n_samples=last_concept_size + self.test_set_size + 10000,
@@ -674,8 +720,12 @@ class SynthClassificationSimulationV3:
                     concept_labels = []
                     for point in concept:
                         rotated_point = rotate(point[0], point[1], 0.5 * i)
-                        region_1 = custom_boundary_1(rotated_point[0], rotated_point[1]) >= 0
-                        region_2 = custom_boundary_2(rotated_point[0], rotated_point[1]) >= 0
+                        region_1 = (
+                                custom_boundary_1(rotated_point[0], rotated_point[1]) >= 0
+                        )
+                        region_2 = (
+                                custom_boundary_2(rotated_point[0], rotated_point[1]) >= 0
+                        )
 
                         if region_1 and region_2:
                             concept_labels.append(0.0)
@@ -685,23 +735,61 @@ class SynthClassificationSimulationV3:
                             concept_labels.append(2.0)
                         else:
                             concept_labels.append(3.0)
-
-                    self.rotation_angle = 0.5 * i
-
                     X = concept[:last_concept_size]
                     classified_labels = concept_labels[:last_concept_size]
 
+                    while len(Counter(classified_labels).keys()) < 4:
+                        logger.debug(
+                            "Regenerating dataset, some class did not generate any sample"
+                        )
+                        concept, _ = make_blobs(
+                            n_samples=last_concept_size + self.test_set_size + 10000,
+                            centers=centers,
+                            n_features=2,
+                            cluster_std=1.5,
+                        )
+
+                        concept_labels = []
+                        for point in concept:
+                            rotated_point = rotate(point[0], point[1], 0.5 * i)
+                            region_1 = (
+                                    custom_boundary_1(rotated_point[0], rotated_point[1]) >= 0
+                            )
+                            region_2 = (
+                                    custom_boundary_2(rotated_point[0], rotated_point[1]) >= 0
+                            )
+
+                            if region_1 and region_2:
+                                concept_labels.append(0.0)
+                            elif not region_1 and region_2:
+                                concept_labels.append(1.0)
+                            elif not region_1 and not region_2:
+                                concept_labels.append(2.0)
+                            else:
+                                concept_labels.append(3.0)
+
+                        X = concept[:last_concept_size]
+                        classified_labels = concept_labels[:last_concept_size]
+
+                    self.rotation_angle = 0.5 * i
+
                     self.test_set = pd.DataFrame(
-                        concept[last_concept_size:last_concept_size + self.test_set_size],
+                        concept[
+                        last_concept_size: last_concept_size + self.test_set_size
+                        ],
                         columns=["X_0", "X_1"],
                     )
-                    self.test_set["y_0"] = concept_labels[last_concept_size:last_concept_size + self.test_set_size]
+                    self.test_set["y_0"] = concept_labels[
+                                           last_concept_size: last_concept_size + self.test_set_size
+                                           ]
 
                     self.current_concept_extended = pd.DataFrame(
                         concept[last_concept_size + self.test_set_size:],
                         columns=["X_0", "X_1"],
                     )
-                    self.current_concept_extended["y_0"] = concept_labels[last_concept_size + self.test_set_size:]
+                    self.current_concept_extended["y_0"] = concept_labels[
+                                                           last_concept_size + self.test_set_size:
+                                                           ]
 
                 dataset = pd.DataFrame(X, columns=["X_0", "X_1"])
                 dataset["y_0"] = classified_labels
@@ -710,7 +798,6 @@ class SynthClassificationSimulationV3:
                     DataProvider(name=f"concept_{i}", generated_dataset=dataset)
                 )
         elif dataset_type == "custom":
-
             for i in range(n_concepts):
                 if i != n_concepts - 1:
                     X = generate_data(
@@ -769,8 +856,12 @@ class SynthClassificationSimulationV3:
                         X = concept[:last_concept_size]
                         generated_classes = X["y_0"].unique()
 
-                    self.test_set = concept[last_concept_size:last_concept_size + self.test_set_size]
-                    self.current_concept_extended = concept[last_concept_size + self.test_set_size:]
+                    self.test_set = concept[
+                                    last_concept_size: last_concept_size + self.test_set_size
+                                    ]
+                    self.current_concept_extended = concept[
+                                                    last_concept_size + self.test_set_size:
+                                                    ]
 
                 self.concept_list.append(
                     DataProvider(name=f"concept_{i}", generated_dataset=X)
@@ -843,7 +934,6 @@ class SynthClassificationSimulationV3:
         self.clairvoyant_final_accuracy = clairvoyant.score(X_test, y_test)
 
         for strategy in self.strategies:
-
             iw_handler = IWHandler(
                 concept_list=deepcopy(self.concept_list),
                 estimator_type=MultivariateNormalEstimator
@@ -1038,7 +1128,7 @@ if __name__ == "__main__":
 
     N_CONCEPTS = 5
     CONCEPT_SIZE = 500
-    LAST_CONCEPT_SIZE = 5
+    LAST_CONCEPT_SIZE = 20
 
     TEST_SET_SIZE = 300
 
@@ -1046,8 +1136,8 @@ if __name__ == "__main__":
         name="synth_classification_v3",
         strategies=[
             RandomSamplingStrategyV3,
+            EntropySamplingStrategy,
             EntropyDiversitySamplingStrategy,
-            EntropySamplingStrategy
         ],
         result_dir=get_root_level_dir("results"),
         n_classes=N_CLASSES,
@@ -1060,7 +1150,7 @@ if __name__ == "__main__":
             n_concepts=N_CONCEPTS,
             concept_size=CONCEPT_SIZE,
             last_concept_size=LAST_CONCEPT_SIZE,
-            dataset_type="multivariate_normal",
+            dataset_type="decision_boundary",
         )
 
         simulation.run()
